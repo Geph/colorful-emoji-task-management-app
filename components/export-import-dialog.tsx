@@ -15,6 +15,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Download, Upload } from "lucide-react"
 
+import type { ColumnVisibility } from "@/lib/app-data"
+
 interface Task {
   id: string
   name: string
@@ -23,19 +25,9 @@ interface Task {
   completed: boolean
   notes: string
   emoji: string
-  attachments: any[]
   progress: number
   dueDate: Date | null
   assignedTo: string
-}
-
-interface ColumnVisibility {
-  attachments: boolean
-  status: boolean
-  priority: boolean
-  progress: boolean
-  due: boolean
-  who: boolean
 }
 
 interface ExportImportDialogProps {
@@ -158,7 +150,7 @@ export function ExportImportDialog({
       )
       .join("\n")}
   </priorityOptions>
-  <columnVisibility attachments="${data.columnVisibility.attachments}" status="${data.columnVisibility.status}" priority="${data.columnVisibility.priority}" progress="${data.columnVisibility.progress}" due="${data.columnVisibility.due}" who="${data.columnVisibility.who}" />
+  <columnVisibility status="${data.columnVisibility.status}" priority="${data.columnVisibility.priority}" progress="${data.columnVisibility.progress}" due="${data.columnVisibility.due}" who="${data.columnVisibility.who}" />
   <columnOrder>
     ${data.columnOrder.map((col) => `    <column>${col}</column>`).join("\n")}
   </columnOrder>
@@ -230,7 +222,6 @@ export function ExportImportDialog({
             dueDate: dueDateStr ? new Date(dueDateStr) : null,
             assignedTo: unescapeXml(task.getAttribute("assignedTo") || ""),
             notes: notesElement ? unescapeXml(notesElement.textContent || "") : "",
-            attachments: [],
           }
         })
 
@@ -256,16 +247,17 @@ export function ExportImportDialog({
       const columnVisibilityElement = xmlDoc.querySelector("columnVisibility")
       const columnVisibility = columnVisibilityElement
         ? {
-            attachments: columnVisibilityElement.getAttribute("attachments") === "true",
-            status: columnVisibilityElement.getAttribute("status") === "true",
-            priority: columnVisibilityElement.getAttribute("priority") === "true",
-            progress: columnVisibilityElement.getAttribute("progress") === "true",
-            due: columnVisibilityElement.getAttribute("due") === "true",
-            who: columnVisibilityElement.getAttribute("who") === "true",
+            status: columnVisibilityElement.getAttribute("status") !== "false",
+            priority: columnVisibilityElement.getAttribute("priority") !== "false",
+            progress: columnVisibilityElement.getAttribute("progress") !== "false",
+            due: columnVisibilityElement.getAttribute("due") !== "false",
+            who: columnVisibilityElement.getAttribute("who") !== "false",
           }
         : undefined
 
-      const columnOrder = Array.from(xmlDoc.querySelectorAll("columnOrder > column")).map((col) => col.textContent || "")
+      const columnOrder = Array.from(xmlDoc.querySelectorAll("columnOrder > column"))
+        .map((col) => col.textContent || "")
+        .filter((col) => col !== "attachments")
 
       const users = Array.from(xmlDoc.querySelectorAll("users > user")).map((user) => unescapeXml(user.textContent || ""))
 

@@ -18,16 +18,9 @@ import { Settings, Upload, Download, Lock, RotateCcw } from "lucide-react"
 import { ExportImportDialog } from "@/components/export-import-dialog"
 import { ColumnOrderSettings } from "@/components/column-order-settings"
 import { ThemeSettings } from "@/components/theme-settings"
-import { useIsMobile } from "@/hooks/use-mobile" // Added mobile hook import
-
-interface ColumnVisibility {
-  attachments: boolean
-  status: boolean
-  priority: boolean
-  progress: boolean
-  due: boolean
-  who: boolean
-}
+import { useIsMobile } from "@/hooks/use-mobile"
+import { APP_VERSION } from "@/lib/version"
+import type { ColumnVisibility } from "@/lib/app-data"
 
 interface SettingsDialogProps {
   children: React.ReactNode
@@ -49,6 +42,10 @@ interface SettingsDialogProps {
   columnOrder: string[]
   onUpdateColumnOrder: (order: string[]) => void
   users: string[]
+  isRemoteConfigured?: boolean
+  lastSavedAt?: Date | null
+  saveError?: string | null
+  onSyncToDatabase?: () => Promise<void>
 }
 
 export function SettingsDialog({
@@ -71,11 +68,16 @@ export function SettingsDialog({
   columnOrder,
   onUpdateColumnOrder,
   users,
+  isRemoteConfigured = false,
+  lastSavedAt = null,
+  saveError = null,
+  onSyncToDatabase,
 }: SettingsDialogProps) {
   const [open, setOpen] = useState(false)
   const [tempAppName, setTempAppName] = useState(appName)
   const [newPIN, setNewPIN] = useState("")
   const [confirmPIN, setConfirmPIN] = useState("")
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const isMobile = useIsMobile()
 
@@ -122,6 +124,20 @@ export function SettingsDialog({
   const handleSaveSettings = () => {
     onUpdateAppName(tempAppName)
     setOpen(false)
+  }
+
+  const handleSyncToDatabase = async () => {
+    if (!onSyncToDatabase) return
+
+    setIsSyncing(true)
+    try {
+      await onSyncToDatabase()
+      alert("Tasks saved to the database.")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to save to database.")
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   return (
@@ -204,7 +220,7 @@ export function SettingsDialog({
             <div className="pt-4 border-t mt-6">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>App Version</span>
-                <span className="font-mono">v0.2.2</span>
+                <span className="font-mono">v{APP_VERSION}</span>
               </div>
             </div>
           </TabsContent>
@@ -270,6 +286,38 @@ export function SettingsDialog({
 
           <TabsContent value="data" className="space-y-4">
             <div className="space-y-4">
+              <div className="p-4 border rounded">
+                <h3 className="font-medium mb-2">Database sync</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Push everything currently in this browser (tasks, sections, settings) to MySQL. Use this once to
+                  migrate data you already had saved locally.
+                </p>
+                {isRemoteConfigured ? (
+                  <div className="space-y-3">
+                    <Button
+                      variant="outline"
+                      className="w-full bg-transparent"
+                      onClick={handleSyncToDatabase}
+                      disabled={isSyncing}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {isSyncing ? "Saving..." : "Push to database now"}
+                    </Button>
+                    {lastSavedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Last saved to database: {lastSavedAt.toLocaleString()}
+                      </p>
+                    )}
+                    {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Storage API not detected. Deploy the PHP files to{" "}
+                    <code className="text-xs">/task/api/data.php</code> on your server.
+                  </p>
+                )}
+              </div>
+
               <div className="p-4 border rounded">
                 <h3 className="font-medium mb-2">Export/Import Configuration</h3>
                 <p className="text-sm text-muted-foreground mb-4">

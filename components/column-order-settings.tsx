@@ -5,33 +5,20 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import { GripVertical, Eye, EyeOff } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import type { ColumnVisibility } from "@/lib/app-data"
 
 interface ColumnConfig {
   id: string
   label: string
   description: string
   visible: boolean
-  fixed?: boolean // For columns that can't be reordered
+  fixed?: boolean
 }
 
 interface ColumnOrderSettingsProps {
-  columnVisibility: {
-    attachments: boolean
-    status: boolean
-    priority: boolean
-    progress: boolean
-    due: boolean
-    who: boolean
-  }
+  columnVisibility: ColumnVisibility
   columnOrder: string[]
-  onUpdateColumnVisibility: (visibility: {
-    attachments: boolean
-    status: boolean
-    priority: boolean
-    progress: boolean
-    due: boolean
-    who: boolean
-  }) => void
+  onUpdateColumnVisibility: (visibility: ColumnVisibility) => void
   onUpdateColumnOrder: (order: string[]) => void
 }
 
@@ -45,12 +32,6 @@ export function ColumnOrderSettings({
 
   useEffect(() => {
     const defaultColumns = [
-      {
-        id: "attachments",
-        label: "Attachments",
-        description: "File attachments",
-        visible: columnVisibility.attachments,
-      },
       { id: "status", label: "Status", description: "Task status dropdown", visible: columnVisibility.status },
       { id: "priority", label: "Priority", description: "Task priority dropdown", visible: columnVisibility.priority },
       { id: "progress", label: "Progress", description: "Progress bar (0-100%)", visible: columnVisibility.progress },
@@ -58,10 +39,12 @@ export function ColumnOrderSettings({
       { id: "who", label: "Assigned To", description: "Person assigned to task", visible: columnVisibility.who },
     ]
 
-    // Sort columns based on the current order
     const orderedColumns =
       columnOrder.length > 0
-        ? (columnOrder.map((id) => defaultColumns.find((col) => col.id === id)).filter(Boolean) as ColumnConfig[])
+        ? (columnOrder
+            .filter((id) => id !== "attachments")
+            .map((id) => defaultColumns.find((col) => col.id === id))
+            .filter(Boolean) as ColumnConfig[])
         : defaultColumns
 
     setColumns(orderedColumns)
@@ -79,22 +62,11 @@ export function ColumnOrderSettings({
   }
 
   const handleVisibilityChange = (columnId: string, visible: boolean) => {
-    console.log(`[v0] Column visibility changed: ${columnId} = ${visible}`)
     setColumns(columns.map((col) => (col.id === columnId ? { ...col, visible } : col)))
 
     const newVisibility = { ...columnVisibility }
-    if (columnId === "attachments") {
-      newVisibility.attachments = visible
-    } else if (columnId === "status") {
-      newVisibility.status = visible
-    } else if (columnId === "priority") {
-      newVisibility.priority = visible
-    } else if (columnId === "progress") {
-      newVisibility.progress = visible
-    } else if (columnId === "due") {
-      newVisibility.due = visible
-    } else if (columnId === "who") {
-      newVisibility.who = visible
+    if (columnId in newVisibility) {
+      newVisibility[columnId as keyof ColumnVisibility] = visible
     }
     onUpdateColumnVisibility(newVisibility)
   }

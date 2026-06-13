@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { StatusDropdown, type StatusType } from "@/components/status-dropdown"
 import { PriorityDropdown, type PriorityType } from "@/components/priority-dropdown"
 import { SectionRenameDialog } from "@/components/section-rename-dialog"
@@ -30,13 +30,22 @@ import { AddSectionDialog } from "@/components/add-section-dialog"
 import { RemoveSectionDialog } from "@/components/remove-section-dialog"
 import { RocketIcon } from "@/components/rocket-icon"
 import { MergeTasksDialog } from "@/components/merge-tasks-dialog"
-import { EmojiPicker } from "@/components/enhanced-emoji-picker" // Updated import
-import { FileAttachmentComponent } from "@/components/file-attachment"
-import { SettingsDialog } from "@/components/settings-dialog" // Added import
+import { EmojiPicker } from "@/components/enhanced-emoji-picker"
+import { SettingsDialog } from "@/components/settings-dialog"
+import { DbStatusIndicator } from "@/components/db-status-indicator"
 import { ProgressBar } from "@/components/progress-bar"
 import { DueDatePicker } from "@/components/due-date-picker"
 import { WhoField } from "@/components/who-field"
-import { useIsMobile } from "@/hooks/use-mobile" // Added mobile hook import
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useAppStorage } from "@/hooks/use-app-storage"
+import {
+  DEFAULT_COLUMN_ORDER,
+  DEFAULT_COLUMN_VISIBILITY,
+  serializeTaskDates,
+  stripLegacyFields,
+  type ColumnVisibility,
+} from "@/lib/app-data"
+import type { AppData } from "@/lib/app-data"
 
 interface Task {
   id: string
@@ -46,7 +55,6 @@ interface Task {
   completed: boolean
   notes: string
   emoji: string
-  attachments: any[]
   progress: number
   dueDate: Date | null
   assignedTo: string
@@ -60,17 +68,8 @@ interface TaskSection {
   expanded: boolean
 }
 
-type SortField = "name" | "status" | "priority" | "due" // Added "due" to sort field options
+type SortField = "name" | "status" | "priority" | "due"
 type SortDirection = "asc" | "desc"
-
-interface ColumnVisibility {
-  attachments: boolean // Added attachments visibility
-  status: boolean // Added status visibility
-  priority: boolean // Added priority visibility
-  progress: boolean
-  due: boolean
-  who: boolean
-}
 
 export function TaskList() {
   const [statusOptions, setStatusOptions] = useState([
@@ -106,7 +105,6 @@ export function TaskList() {
           completed: false,
           notes: "",
           emoji: "📝",
-          attachments: [],
           progress: 0,
           dueDate: null,
           assignedTo: "",
@@ -119,7 +117,6 @@ export function TaskList() {
           completed: false,
           notes: "",
           emoji: "📝",
-          attachments: [],
           progress: 0,
           dueDate: null,
           assignedTo: "",
@@ -139,7 +136,6 @@ export function TaskList() {
           completed: false,
           notes: "",
           emoji: "📝",
-          attachments: [],
           progress: 0,
           dueDate: null,
           assignedTo: "",
@@ -161,119 +157,96 @@ export function TaskList() {
   const [headerColor, setHeaderColor] = useState("#5e1bda")
   const [hasPIN, setHasPIN] = useState(false)
   const [userPIN, setUserPIN] = useState("")
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
-    attachments: true,
-    status: true,
-    priority: true,
-    progress: true,
-    due: true,
-    who: true,
-  })
-  const [columnOrder, setColumnOrder] = useState<string[]>([
-    "attachments",
-    "status",
-    "priority",
-    "progress",
-    "due",
-    "who",
-  ])
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(DEFAULT_COLUMN_VISIBILITY)
+  const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_COLUMN_ORDER)
 
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false)
   const [users, setUsers] = useState<string[]>([])
 
-  // const [renameDialogOpen, setRenameDialogOpen] = useState(false)
-  // const [sectionToRename, setSectionToRename] = useState<{ id: string; name: string } | null>(null)
+  const isMobile = useIsMobile()
+  const [storageReady, setStorageReady] = useState(false)
 
-  // const handleRenameDialogClose = () => {
-  //   console.log("[v0] Rename dialog closing, cleaning up state")
-  //   setRenameDialogOpen(false)
-  //   setSectionToRename(null)
-  // }
+  const handleStorageLoaded = useCallback((data: Partial<AppData>) => {
+    if (data.appName) setAppName(data.appName)
+    if (data.appIcon) setAppIcon(data.appIcon)
+    if (data.headerColor) setHeaderColor(data.headerColor)
+    if (data.columnVisibility) {
+      const cleaned = stripLegacyFields({ columnVisibility: data.columnVisibility }).columnVisibility as ColumnVisibility
+      setColumnVisibility({ ...DEFAULT_COLUMN_VISIBILITY, ...cleaned })
+    }
+    if (data.columnOrder?.length) {
+      setColumnOrder(data.columnOrder.filter((col) => col !== "attachments"))
+    }
+    if (data.sections) setSections(data.sections as TaskSection[])
+    if (data.completedTasks) setCompletedTasks(data.completedTasks as Task[])
+    if (data.statusOptions) setStatusOptions(data.statusOptions)
+    if (data.priorityOptions) setPriorityOptions(data.priorityOptions)
+    if (data.users) setUsers(data.users)
+  }, [])
+
+  const { isLoading: isStorageLoading, saveError, lastSavedAt, persist, syncNow, isRemoteConfigured } =
+    useAppStorage({
+      enabled: storageReady,
+      onLoaded: handleStorageLoaded,
+    })
+
+  const buildCurrentAppData = useCallback(
+    (): AppData => ({
+      appName,
+      appIcon,
+      headerColor,
+      columnVisibility,
+      columnOrder,
+      sections: sections.map((section) => ({
+        ...section,
+        tasks: section.tasks.map((task) => serializeTaskDates(task)),
+      })),
+      completedTasks: completedTasks.map((task) => serializeTaskDates(task)),
+      statusOptions,
+      priorityOptions,
+      users,
+    }),
+    [
+      appName,
+      appIcon,
+      headerColor,
+      columnVisibility,
+      columnOrder,
+      sections,
+      completedTasks,
+      statusOptions,
+      priorityOptions,
+      users,
+    ],
+  )
+
+  useEffect(() => {
+    if (!storageReady || isStorageLoading) return
+
+    persist(buildCurrentAppData())
+  }, [storageReady, isStorageLoading, persist, buildCurrentAppData])
+
+  const handleSyncToDatabase = useCallback(async () => {
+    await syncNow(buildCurrentAppData())
+  }, [syncNow, buildCurrentAppData])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedAppName = localStorage.getItem("appName")
-      const storedAppIcon = localStorage.getItem("appIcon")
       const storedUserPIN = localStorage.getItem("userPIN")
-      const storedColumnVisibility = localStorage.getItem("columnVisibility")
-      const storedColumnOrder = localStorage.getItem("columnOrder")
-      const storedSections = localStorage.getItem("taskSections")
-      const storedCompletedTasks = localStorage.getItem("completedTasks")
-      const storedStatusOptions = localStorage.getItem("statusOptions")
-      const storedPriorityOptions = localStorage.getItem("priorityOptions")
-      const storedUsers = localStorage.getItem("users")
-      const storedHeaderColor = localStorage.getItem("headerColor")
-
-      if (storedAppName) setAppName(storedAppName)
-      if (storedAppIcon) setAppIcon(storedAppIcon)
-      if (storedHeaderColor) setHeaderColor(storedHeaderColor)
       if (storedUserPIN) {
         setUserPIN(storedUserPIN)
         setHasPIN(true)
       }
-      if (storedColumnVisibility) {
-        setColumnVisibility(JSON.parse(storedColumnVisibility))
-      }
-      if (storedColumnOrder) {
-        setColumnOrder(JSON.parse(storedColumnOrder))
-      }
-      if (storedSections) {
-        setSections(JSON.parse(storedSections))
-      }
-      if (storedCompletedTasks) {
-        setCompletedTasks(JSON.parse(storedCompletedTasks))
-      }
-      if (storedStatusOptions) {
-        setStatusOptions(JSON.parse(storedStatusOptions))
-      }
-      if (storedPriorityOptions) {
-        setPriorityOptions(JSON.parse(storedPriorityOptions))
-      }
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers))
-      }
+      setStorageReady(true)
     }
   }, [])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("taskSections", JSON.stringify(sections))
-    }
-  }, [sections])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("completedTasks", JSON.stringify(completedTasks))
-    }
-  }, [completedTasks])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("statusOptions", JSON.stringify(statusOptions))
-    }
-  }, [statusOptions])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("priorityOptions", JSON.stringify(priorityOptions))
-    }
-  }, [priorityOptions])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("users", JSON.stringify(users))
-    }
-  }, [users])
-
-  const isMobile = useIsMobile()
 
   const calculateColumnWidths = () => {
     if (isMobile) {
       return {
         checkbox: "8%",
-        emoji: "10%",
-        name: "60%", // Reduced to make room for files column inline
-        attachments: "22%", // Added files column for mobile inline display
+        emoji: "12%",
+        name: "80%",
       }
     }
 
@@ -285,8 +258,6 @@ export function TaskList() {
 
     const visibleColumns = columnOrder.filter((columnId) => {
       switch (columnId) {
-        case "attachments":
-          return columnVisibility.attachments
         case "status":
           return columnVisibility.status
         case "priority":
@@ -315,7 +286,6 @@ export function TaskList() {
 
     // Define minimum widths for specific columns
     const columnMinWidths: Record<string, number> = {
-      attachments: 6,
       status: 10, // Increased minimum for status
       priority: 10, // Increased minimum for priority
       progress: 7,
@@ -339,9 +309,6 @@ export function TaskList() {
         const width = minWidth + extraPerColumn + (index === visibleColumns.length - 1 ? remainder : 0)
 
         switch (columnId) {
-          case "attachments":
-            if (columnVisibility.attachments) dynamicColumns.attachments = `${width}%`
-            break
           case "status":
             if (columnVisibility.status) dynamicColumns.status = `${width}%`
             break
@@ -368,9 +335,6 @@ export function TaskList() {
         const width = columnWidth + (index === visibleColumns.length - 1 ? remainder : 0)
 
         switch (columnId) {
-          case "attachments":
-            if (columnVisibility.attachments) dynamicColumns.attachments = `${width}%`
-            break
           case "status":
             if (columnVisibility.status) dynamicColumns.status = `${width}%`
             break
@@ -529,7 +493,6 @@ export function TaskList() {
       completed: false,
       notes: "",
       emoji: "",
-      attachments: [],
       progress: 0,
       dueDate: null,
       assignedTo: "",
@@ -554,8 +517,7 @@ export function TaskList() {
         ...task,
         id: Date.now().toString(),
         name: `${task.name} (Copy)`,
-        notes: task.notes, // Copy the task notes
-        attachments: [], // Don't duplicate attachments
+        notes: task.notes,
       }
 
       setSections(
@@ -864,10 +826,11 @@ export function TaskList() {
     setStatusOptions(data.statusOptions)
     setPriorityOptions(data.priorityOptions)
     if (data.columnVisibility) {
-      setColumnVisibility(data.columnVisibility)
+      const cleaned = stripLegacyFields({ columnVisibility: data.columnVisibility }).columnVisibility as ColumnVisibility
+      setColumnVisibility({ ...DEFAULT_COLUMN_VISIBILITY, ...cleaned })
     }
     if (data.columnOrder && data.columnOrder.length > 0) {
-      setColumnOrder(data.columnOrder)
+      setColumnOrder(data.columnOrder.filter((col) => col !== "attachments"))
     }
     if (data.users) {
       setUsers(data.users)
@@ -899,7 +862,6 @@ export function TaskList() {
           .filter((n) => n)
           .join("\n\n"),
         emoji: tasksToMerge[0].emoji,
-        attachments: tasksToMerge.flatMap((t) => t.attachments),
         progress: 0, // Default values for new fields
         dueDate: null,
         assignedTo: "",
@@ -933,46 +895,6 @@ export function TaskList() {
           ? {
               ...section,
               tasks: section.tasks.map((task) => (task.id === taskId ? { ...task, emoji } : task)),
-            }
-          : section,
-      ),
-    )
-  }
-
-  const addTaskAttachment = (sectionId: string, taskId: string, file: File) => {
-    const attachment = {
-      id: Date.now().toString(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      url: URL.createObjectURL(file),
-    }
-
-    setSections(
-      sections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              tasks: section.tasks.map((task) =>
-                task.id === taskId ? { ...task, attachments: [...task.attachments, attachment] } : task,
-              ),
-            }
-          : section,
-      ),
-    )
-  }
-
-  const removeTaskAttachment = (sectionId: string, taskId: string, attachmentId: string) => {
-    setSections(
-      sections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              tasks: section.tasks.map((task) =>
-                task.id === taskId
-                  ? { ...task, attachments: task.attachments.filter((a) => a.id !== attachmentId) }
-                  : task,
-              ),
             }
           : section,
       ),
@@ -1065,16 +987,7 @@ export function TaskList() {
 
   const renderTaskColumns = (task: Task, section: { id: string }) => {
     const columnComponents: Record<string, React.JSX.Element> = {
-      attachments: columnVisibility.attachments ? ( // Added visibility check for attachments
-        <div className="flex items-center justify-center" style={{ width: columnWidths.attachments }}>
-          <FileAttachmentComponent
-            attachments={task.attachments}
-            onAddAttachment={(file) => addTaskAttachment(section.id, task.id, file)}
-            onRemoveAttachment={(attachmentId) => removeTaskAttachment(section.id, task.id, attachmentId)}
-          />
-        </div>
-      ) : null,
-      status: columnVisibility.status ? ( // Added visibility check for status
+      status: columnVisibility.status ? (
         <div className="flex items-stretch" style={{ width: columnWidths.status }}>
           <div className="w-full">
             <StatusDropdown
@@ -1132,16 +1045,7 @@ export function TaskList() {
 
   const renderColumnHeaders = () => {
     const headerComponents: Record<string, React.JSX.Element> = {
-      attachments: columnVisibility.attachments ? ( // Added visibility check for attachments header
-        <div className="flex items-center justify-center gap-1 relative" style={{ width: columnWidths.attachments }}>
-          <div className="flex items-center justify-center w-full">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-            </svg>
-          </div>
-        </div>
-      ) : null,
-      status: columnVisibility.status ? ( // Added visibility check for status header
+      status: columnVisibility.status ? (
         <div
           className="flex items-center justify-center gap-1 cursor-pointer relative"
           style={{ width: columnWidths.status }}
@@ -1189,8 +1093,6 @@ export function TaskList() {
   const renderMobileTaskRow = (task: Task, section: { id: string }) => {
     const mobileColumns = columnOrder.filter((columnId) => {
       switch (columnId) {
-        case "attachments":
-          return columnVisibility.attachments
         case "status":
           return columnVisibility.status
         case "priority":
@@ -1288,19 +1190,10 @@ export function TaskList() {
               </div>
             )}
           </div>
-          {columnVisibility.attachments && (
-            <div className="flex items-center">
-              <FileAttachmentComponent
-                attachments={task.attachments}
-                onAddAttachment={(file) => addTaskAttachment(section.id, task.id, file)}
-                onRemoveAttachment={(attachmentId) => removeTaskAttachment(section.id, task.id, attachmentId)}
-              />
-            </div>
-          )}
         </div>
 
-        {mobileColumns.filter((col) => col !== "attachments").length > 0 && (
-          <div className="grid grid-cols-2 gap-1 ml-12 text-xs">
+        {mobileColumns.length > 0 && (
+          <div className={`ml-11 grid gap-2 text-xs ${mobileColumns.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {mobileColumns
               .map((columnId) => {
                 switch (columnId) {
@@ -1390,40 +1283,56 @@ export function TaskList() {
 
   return (
     <div className="flex-1 bg-background">
-      <div className="border-b border-border p-6" style={{ backgroundColor: headerColor }}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
+      {isStorageLoading && (
+        <div className="border-b border-border bg-muted/40 px-4 py-2 text-center text-sm text-muted-foreground">
+          Loading saved tasks...
+        </div>
+      )}
+      {saveError && (
+        <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
+          Could not sync to database: {saveError}
+        </div>
+      )}
+      <div
+        className={`border-b border-border ${isMobile ? "px-3 py-4" : "p-6"}`}
+        style={{ backgroundColor: headerColor }}
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             {appIcon ? (
-              <img src={appIcon || "/placeholder.svg"} alt="App icon" className="w-8 h-8 object-contain" />
+              <img src={appIcon || "/placeholder.svg"} alt="App icon" className="h-8 w-8 flex-shrink-0 object-contain" />
             ) : (
-              <RocketIcon className="w-8 h-8 text-white" />
+              <RocketIcon className="h-8 w-8 flex-shrink-0 text-white" />
             )}
-            <h1 className="text-2xl font-semibold text-white">{appName}</h1>
+            <div className="min-w-0">
+              <h1 className={`truncate font-semibold text-white ${isMobile ? "text-lg" : "text-2xl"}`}>{appName}</h1>
+              {lastSavedAt && !isMobile && (
+                <p className="text-xs text-white/70">Saved {lastSavedAt.toLocaleTimeString()}</p>
+              )}
+            </div>
+            <DbStatusIndicator />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {/* Search box - always visible */}
-            <div className="relative order-1 sm:order-2">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="relative order-1 w-full sm:order-2 sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
-                placeholder="Search..."
-                className="pl-10 w-full sm:w-64 bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                placeholder="Search tasks..."
+                className="w-full border-white/20 bg-white/10 pl-10 text-white placeholder:text-white/60"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
-            {/* Buttons container - moves below search on small screens */}
-            <div className="flex items-center gap-3 order-2 sm:order-1">
+            <div className="order-2 flex items-center gap-2 sm:order-1">
               <AddSectionDialog onAddSection={addSection}>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white hover:text-purple-900 transition-colors cursor-pointer"
-                  onClick={() => console.log("[v0] Add section button clicked")} // Added debug logging
+                  size={isMobile ? "default" : "sm"}
+                  className="flex-1 gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900 sm:flex-none"
                 >
-                  <Plus className="w-4 h-4" />
-                  Add Section
+                  <Plus className="h-4 w-4" />
+                  {isMobile ? "Section" : "Add Section"}
                 </Button>
               </AddSectionDialog>
               <SettingsDialog
@@ -1445,13 +1354,17 @@ export function TaskList() {
                 columnOrder={columnOrder}
                 onUpdateColumnOrder={handleUpdateColumnOrder}
                 users={users}
+                isRemoteConfigured={isRemoteConfigured}
+                lastSavedAt={lastSavedAt}
+                saveError={saveError}
+                onSyncToDatabase={handleSyncToDatabase}
               >
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white hover:text-purple-900 transition-colors"
+                  size={isMobile ? "default" : "sm"}
+                  className="gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="h-4 w-4" />
                   Settings
                 </Button>
               </SettingsDialog>
@@ -1460,7 +1373,7 @@ export function TaskList() {
         </div>
       </div>
 
-      <div className="border-b border-border p-4">
+      <div className={`border-b border-border ${isMobile ? "px-2 py-2" : "p-4"}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {selectedTasks.size > 0 && (
@@ -1504,7 +1417,7 @@ export function TaskList() {
         </div>
       </div>
 
-      <div className="p-4 table-container" ref={tableRef}>
+      <div className={`table-container ${isMobile ? "px-2 py-3" : "p-4"}`} ref={tableRef}>
         {sections.map((section) => (
           <div key={section.id} className="mb-6">
             <div className="flex flex-col gap-2 mb-4">
@@ -1831,7 +1744,6 @@ export function TaskList() {
                       <div style={{ width: columnWidths.checkbox }}>☑️</div>
                       <div style={{ width: columnWidths.emoji }}>😀</div>
                       <div style={{ width: columnWidths.name }}>Name</div>
-                      <div style={{ width: columnWidths.attachments }}>📎</div>
                       <div style={{ width: columnWidths.status }}>Status</div>
                       <div style={{ width: columnWidths.priority }}>Priority</div>
                       {columnVisibility.progress && <div style={{ width: columnWidths.progress }}>Progress</div>}
@@ -1872,7 +1784,6 @@ export function TaskList() {
                           <div className="flex items-center" style={{ width: columnWidths.name }}>
                             <span className="text-sm line-through">{task.name}</span>
                           </div>
-                          <div style={{ width: columnWidths.attachments }}></div>
                           <div className="flex items-stretch" style={{ width: columnWidths.status }}>
                             <div className="w-full">
                               <StatusDropdown
@@ -1908,26 +1819,6 @@ export function TaskList() {
           </div>
         )}
       </div>
-
-      {/* {sectionToRename && (
-        <SectionRenameDialog
-          currentName={sectionToRename.name}
-          onRename={(newName) => {
-            console.log("[v0] Renaming section to:", newName)
-            renameSection(sectionToRename.id, newName)
-            handleRenameDialogClose()
-          }}
-          isOpen={renameDialogOpen}
-          onOpenChange={(open) => {
-            console.log("[v0] Rename dialog open change:", open)
-            if (!open) {
-              handleRenameDialogClose()
-            } else {
-              setRenameDialogOpen(open)
-            }
-          }}
-        />
-      )} */}
     </div>
   )
 }
