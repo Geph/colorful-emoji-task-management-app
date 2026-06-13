@@ -146,5 +146,5 @@ Upload the contents of `out/` to `public_html/task/` on Dreamhost.
 
 | Target | `NEXT_PUBLIC_BASE_PATH` | Storage |
 |--------|-------------------------|---------|
-| GitHub Pages | `/v0-task-management-app` | Browser storage only |
+| GitHub Pages | `/colorful-emoji-task-management-app` | Browser storage only |
 | Dreamhost `/task/` | `/task` | MySQL via PHP API |

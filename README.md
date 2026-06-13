@@ -1,8 +1,8 @@
 # Simple Colorful Emoji Task List App
 
-[![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222?style=for-the-badge&logo=github)](https://geph.github.io/v0-task-management-app/)
+[![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222?style=for-the-badge&logo=github)](https://geph.github.io/colorful-emoji-task-management-app/)
 
-![Task Management App Screenshot](https://github.com/Geph/v0-task-management-app/blob/main/Example-Screenshot.png)
+![Task Management App Screenshot](https://github.com/Geph/colorful-emoji-task-management-app/blob/main/Example-Screenshot.png)
 
 A self-hosted, emoji-rich task manager built with Next.js. Works as a static site on GitHub Pages or Dreamhost, with optional MySQL sync for persistent storage on your VPS.
 
@@ -44,7 +44,7 @@ npm run build
 
 | Target | Base path env | Storage |
 |--------|---------------|---------|
-| [GitHub Pages](https://geph.github.io/v0-task-management-app/) | `NEXT_PUBLIC_BASE_PATH=/v0-task-management-app` | Browser `localStorage` |
+| [GitHub Pages](https://geph.github.io/colorful-emoji-task-management-app/) | `NEXT_PUBLIC_BASE_PATH=/colorful-emoji-task-management-app` | Browser `localStorage` |
 | [jeffginger.com/task/](https://jeffginger.com/task/) | `NEXT_PUBLIC_BASE_PATH=/task` | MySQL via PHP API |
 
 See [DATABASE.md](./DATABASE.md) for MySQL setup on Dreamhost and [DEPLOYMENT.md](./DEPLOYMENT.md) for upload instructions.
@@ -66,7 +66,7 @@ Copy `.env.example` to `.env.local`:
 
 | Variable | Purpose |
 |----------|---------|
-| `NEXT_PUBLIC_BASE_PATH` | URL prefix (e.g. `/task` or `/v0-task-management-app`) |
+| `NEXT_PUBLIC_BASE_PATH` | URL prefix (e.g. `/task` or `/colorful-emoji-task-management-app`) |
 | `NEXT_PUBLIC_ASSET_PREFIX` | Asset prefix matching base path |
 | `NEXT_PUBLIC_STORAGE_API` | PHP endpoint URL for MySQL sync |
 | `NEXT_PUBLIC_STORAGE_API_KEY` | Shared secret sent as `X-API-Key` |

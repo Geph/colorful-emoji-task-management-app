@@ -30,8 +30,8 @@ jobs:
 
       - name: Build static site
         env:
-          NEXT_PUBLIC_BASE_PATH: /v0-task-management-app
-          NEXT_PUBLIC_ASSET_PREFIX: /v0-task-management-app/
+          NEXT_PUBLIC_BASE_PATH: /colorful-emoji-task-management-app
+          NEXT_PUBLIC_ASSET_PREFIX: /colorful-emoji-task-management-app/
         run: npm run build
 
       - name: Upload artifact
