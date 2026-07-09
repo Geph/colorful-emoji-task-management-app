@@ -2,19 +2,22 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { Copy, Edit3, CheckCircle, Trash2 } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
@@ -52,9 +55,9 @@ export function TaskDetailsDialog({
 
   const isMobile = useIsMobile()
 
-  useState(() => {
+  useEffect(() => {
     setNewTaskName(taskName)
-  })
+  }, [taskName])
 
   const handleSave = () => {
     onUpdateNotes(notes)
@@ -177,12 +180,15 @@ export function TaskDetailsDialog({
               Are you sure you want to delete "{taskName}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex gap-2 justify-end">
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-white">
-              Delete
+            <AlertDialogAction
+              onClick={handleDelete}
+              className={cn(buttonVariants({ variant: "destructive" }))}
+            >
+              Delete Task
             </AlertDialogAction>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </Dialog>

@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EMOJI_EXTENSIONS, emojiMatchesSearch } from "@/lib/emoji-search"
 
 interface EmojiPickerProps {
   value: string
@@ -1271,6 +1272,7 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🌊",
   ],
   People: [
+    ...EMOJI_EXTENSIONS.people,
     "👶",
     "🧒",
     "👦",
@@ -1454,6 +1456,7 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🍷",
   ],
   Travel: [
+    ...EMOJI_EXTENSIONS.travel,
     "🚗",
     "🚕",
     "🚙",
@@ -1847,21 +1850,46 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
   ],
 }
 
+const MERGED_EMOJI_NAMES: Record<string, string> = {
+  ...EMOJI_NAMES,
+  ...EMOJI_EXTENSIONS.names,
+}
+
+function buildCategoryLookup(categories: Record<string, string[]>): Record<string, string> {
+  const lookup: Record<string, string> = {}
+  for (const [category, emojis] of Object.entries(categories)) {
+    for (const emoji of emojis) {
+      if (!lookup[emoji]) lookup[emoji] = category
+    }
+  }
+  return lookup
+}
+
+const EMOJI_CATEGORY_LOOKUP = buildCategoryLookup(EMOJI_CATEGORIES)
+
 export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("Smileys")
   const [open, setOpen] = useState(false)
 
-  const allEmojis = useMemo(() => Object.values(EMOJI_CATEGORIES).flat(), [])
+  const allEmojis = useMemo(
+    () => [...new Set(Object.values(EMOJI_CATEGORIES).flat())],
+    [],
+  )
 
   const filteredEmojis = useMemo(() => {
-    if (!searchTerm) return EMOJI_CATEGORIES[activeTab as keyof typeof EMOJI_CATEGORIES] || []
+    if (!searchTerm.trim()) {
+      return EMOJI_CATEGORIES[activeTab as keyof typeof EMOJI_CATEGORIES] || []
+    }
 
-    const searchLower = searchTerm.toLowerCase()
-    return allEmojis.filter((emoji) => {
-      const emojiName = EMOJI_NAMES[emoji] || ""
-      return emoji.toLowerCase().includes(searchLower) || emojiName.toLowerCase().includes(searchLower)
-    })
+    return allEmojis.filter((emoji) =>
+      emojiMatchesSearch(
+        emoji,
+        MERGED_EMOJI_NAMES[emoji] || "",
+        EMOJI_CATEGORY_LOOKUP[emoji] || "",
+        searchTerm,
+      ),
+    )
   }, [searchTerm, activeTab, allEmojis])
 
   const handleEmojiSelect = (emoji: string) => {
@@ -1926,7 +1954,7 @@ export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProp
           <div className="relative">
             <Search className="w-4 h-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search emojis..."
+              placeholder="Search: travel, user, bust, train, family..."
               className="pl-8 h-8"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
