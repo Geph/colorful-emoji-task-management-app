@@ -57,8 +57,8 @@ export function PriorityDropdown({
       >
         <Badge
           className={`text-xs font-medium hover:opacity-80 cursor-pointer ${
-            fullWidth ? "w-full h-full flex items-center justify-center rounded-none border" : "rounded-full"
-          } ${mobileHeight ? "min-h-[36px] py-2" : ""} ${currentPriority.key === "blank" ? "text-gray-500 border-gray-300" : "text-white"}`} // added mobileHeight styling for badge
+            fullWidth ? "w-full h-full flex items-center justify-center border" : "rounded-full"
+          } ${fullWidth && !mobileHeight ? "rounded-none" : ""} ${mobileHeight ? "min-h-[36px] rounded-md py-2" : ""} ${currentPriority.key === "blank" ? "text-gray-500 border-gray-300" : "text-white"}`} // added mobileHeight styling for badge
           style={{
             backgroundColor: currentPriority.key === "blank" ? "#ffffff" : currentPriority.color,
             borderColor: currentPriority.key === "blank" ? "#d1d5db" : currentPriority.color,

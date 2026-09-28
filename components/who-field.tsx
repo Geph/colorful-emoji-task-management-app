@@ -62,7 +62,7 @@ export function WhoField({ value, onChange, users, onAddUser, onRemoveUser, onRe
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="w-full h-6 p-1 justify-start text-left font-normal inline-flex items-center rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-10 w-full items-center justify-start rounded-md border border-border px-2 text-left text-sm font-normal transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:border-0 sm:p-1"
           >
             <User className="mr-1 h-3 w-3 flex-shrink-0" />
             <span className="truncate">{value || "Unassigned"}</span>

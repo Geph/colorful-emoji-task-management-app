@@ -5,43 +5,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RocketIcon } from "@/components/rocket-icon"
-import { RotateCcw } from "lucide-react"
 
 interface PinEntryPageProps {
   appName: string
   appIcon: string
-  onPinEntered: (pin: string) => void
-  onResetPin: (email: string) => void
+  isVerifying?: boolean
+  onPinEntered: (pin: string) => void | Promise<void>
 }
 
-export function PinEntryPage({ appName, appIcon, onPinEntered, onResetPin }: PinEntryPageProps) {
+export function PinEntryPage({ appName, appIcon, isVerifying = false, onPinEntered }: PinEntryPageProps) {
   const [pin, setPin] = useState("")
   const [error, setError] = useState("")
-  const [showReset, setShowReset] = useState(false)
-  const [resetEmail, setResetEmail] = useState("")
 
-  const handlePinSubmit = () => {
+  const handlePinSubmit = async () => {
     if (pin.length !== 4) {
       setError("PIN must be 4 digits")
       return
     }
-    onPinEntered(pin)
-  }
-
-  const handleResetPin = () => {
-    if (!resetEmail.trim()) {
-      setError("Please enter your recovery email")
-      return
+    try {
+      await onPinEntered(pin)
+    } catch {
+      setError("Could not verify PIN. Please try again.")
     }
-    onResetPin(resetEmail)
-    setShowReset(false)
-    setResetEmail("")
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-purple-900 to-purple-700 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl sm:p-8">
+        <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             {appIcon ? (
               <img src={appIcon || "/placeholder.svg"} alt="App icon" className="w-16 h-16 object-contain" />
@@ -53,74 +44,41 @@ export function PinEntryPage({ appName, appIcon, onPinEntered, onResetPin }: Pin
           <p className="text-gray-600">Enter your 4-digit PIN to continue</p>
         </div>
 
-        {!showReset ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pin">PIN</Label>
-              <Input
-                id="pin"
-                type="password"
-                maxLength={4}
-                value={pin}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/\D/g, ""))
-                  setError("")
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handlePinSubmit()
-                  }
-                }}
-                placeholder="0000"
-                className="text-center text-2xl tracking-widest"
-                autoFocus
-              />
-            </div>
-
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
-            <Button onClick={handlePinSubmit} className="w-full" disabled={pin.length !== 4}>
-              Enter
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => setShowReset(true)}
-              className="w-full text-sm text-gray-500 hover:text-gray-700"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Forgot PIN?
-            </Button>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="pin">PIN</Label>
+            <Input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => {
+                setPin(e.target.value.replace(/\D/g, ""))
+                setError("")
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void handlePinSubmit()
+                }
+              }}
+              placeholder="0000"
+              className="h-14 text-center text-2xl tracking-widest"
+              autoFocus
+            />
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reset-email">Recovery Email</Label>
-              <Input
-                id="reset-email"
-                type="email"
-                value={resetEmail}
-                onChange={(e) => {
-                  setResetEmail(e.target.value)
-                  setError("")
-                }}
-                placeholder="your@email.com"
-                autoFocus
-              />
-            </div>
 
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {error && <p className="text-center text-sm text-red-500">{error}</p>}
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowReset(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleResetPin} className="flex-1">
-                Reset PIN
-              </Button>
-            </div>
-          </div>
-        )}
+          <Button onClick={() => void handlePinSubmit()} className="h-12 w-full" disabled={pin.length !== 4 || isVerifying}>
+            {isVerifying ? "Checking..." : "Enter"}
+          </Button>
+
+          <p className="text-center text-xs text-gray-500">
+            Forgot it? After you unlock, remove or reset the PIN in Settings. There is no email recovery.
+          </p>
+        </div>
       </div>
     </div>
   )

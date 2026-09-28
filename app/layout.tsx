@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "next-themes"
 import { Suspense } from "react"
@@ -10,6 +10,14 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 export const metadata: Metadata = {
   title: "Task Management",
   description: "Colorful emoji task list with optional MySQL sync",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Tasks" },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 }
 
 export default function RootLayout({

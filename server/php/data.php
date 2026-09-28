@@ -25,7 +25,8 @@ if (!verifyApiKey()) {
 try {
     $pdo = db();
 } catch (Throwable $e) {
-    respond(500, ['error' => 'Database connection failed', 'detail' => $e->getMessage()]);
+    error_log('Task app DB connection failed: ' . $e->getMessage());
+    respond(500, ['error' => 'Database connection failed']);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

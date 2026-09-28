@@ -31,7 +31,7 @@ export function DueDatePicker({ value, onChange }: DueDatePickerProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         className={cn(
-          "w-full h-6 p-1 justify-start text-left font-normal inline-flex items-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground",
+          "w-full h-10 sm:h-6 px-2 sm:p-1 justify-start text-left font-normal inline-flex items-center whitespace-nowrap rounded-md border border-border sm:border-0 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground",
           !value && "text-muted-foreground",
           isOverdue && "text-red-600 bg-red-50",
           isDueToday && "text-orange-600 bg-orange-50",

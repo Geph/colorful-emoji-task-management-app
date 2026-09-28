@@ -3,7 +3,7 @@ import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EMOJI_EXTENSIONS, emojiMatchesSearch } from "@/lib/emoji-search"
 
@@ -11,6 +11,8 @@ interface EmojiPickerProps {
   value: string
   onChange: (emoji: string) => void
   inline?: boolean
+  triggerClassName?: string
+  ariaLabel?: string
 }
 
 const EMOJI_NAMES: Record<string, string> = {
@@ -1199,6 +1201,13 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "👓",
     "🕶️",
     "🥽",
+    "👄",
+    "👅",
+    "💬",
+    "🗨️",
+    "🗯️",
+    "💭",
+    "🗣️",
   ],
   Hearts: [
     "❤️",
@@ -1270,6 +1279,84 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🔥",
     "💧",
     "🌊",
+    "⚠️",
+    "🚫",
+    "💯",
+    "🔳",
+    "🔲",
+    "▪️",
+    "▫️",
+    "◾",
+    "◽",
+    "◼️",
+    "◻️",
+  ],
+  Nature: [
+    "☀️",
+    "🌙",
+    "⛅",
+    "🌤️",
+    "⛈️",
+    "💨",
+    "🌈",
+    "⚡",
+    "🔥",
+    "💧",
+    "🌊",
+    "⭐",
+    "🌟",
+    "✨",
+    "💫",
+    "🌌",
+    "🗻",
+    "⛱️",
+    "🌲",
+    "🌳",
+    "🌴",
+    "🌵",
+    "🌱",
+    "🌿",
+    "☘️",
+    "🍀",
+    "🎍",
+    "🌾",
+    "🌰",
+    "💐",
+    "🌷",
+    "🌹",
+    "🥀",
+    "🌺",
+    "🌻",
+    "🌼",
+  ],
+  Fun: [
+    "🎉",
+    "🎊",
+    "🎈",
+    "🎁",
+    "🎀",
+    "🎎",
+    "🎏",
+    "🧧",
+    "💌",
+    "🎃",
+    "🥳",
+    "🎪",
+    "🪁",
+    "🎠",
+    "🎡",
+    "🎢",
+    "🎂",
+    "🧁",
+    "🎫",
+    "🎲",
+    "🎮",
+    "🕹️",
+    "🎰",
+    "🧩",
+    "🎴",
+    "🃏",
+    "🀄",
   ],
   People: [
     ...EMOJI_EXTENSIONS.people,
@@ -1454,6 +1541,53 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🍵",
     "🍺",
     "🍷",
+    "🍏",
+    "🥯",
+    "🥨",
+    "🧈",
+    "🍔",
+    "🍟",
+    "🍕",
+    "🥪",
+    "🥙",
+    "🧆",
+    "🌮",
+    "🌯",
+    "🥗",
+    "🥘",
+    "🥫",
+    "🍝",
+    "🍜",
+    "🍲",
+    "🍛",
+    "🍣",
+    "🍱",
+    "🥟",
+    "🦪",
+    "🍤",
+    "🍙",
+    "🍚",
+    "🍘",
+    "🥠",
+    "🥮",
+    "🍢",
+    "🍡",
+    "🍧",
+    "🍨",
+    "🍦",
+    "🍰",
+    "🎂",
+    "🧁",
+    "🍮",
+    "🍭",
+    "🍬",
+    "🍫",
+    "🍿",
+    "🍩",
+    "🍪",
+    "🌰",
+    "🍯",
+    "🥜",
   ],
   Travel: [
     ...EMOJI_EXTENSIONS.travel,
@@ -1491,6 +1625,9 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🛣️",
     "⛽",
     "🚏",
+    "🛺",
+    "💺",
+    "🛰️",
   ],
   Sports: [
     "⚽",
@@ -1540,6 +1677,25 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🥉",
     "🏅",
     "🎖️",
+    "🥎",
+    "🥏",
+    "🎳",
+    "🥍",
+    "🛷",
+    "🥌",
+    "🎽",
+    "⛷️",
+    "🪂",
+    "🛼",
+    "⛹️",
+    "🏌️",
+    "🏇",
+    "🤽",
+    "🚣",
+    "🧗",
+    "🚵",
+    "🪃",
+    "🪁",
   ],
   Locations: [
     "🌍",
@@ -1635,6 +1791,12 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🇨🇴",
     "🇵🇪",
     "🇺🇦",
+    "🗻",
+    "♨️",
+    "🗿",
+    "⛲",
+    "🗾",
+    "🎪",
   ],
   Data: [
     "📊",
@@ -1725,6 +1887,15 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "📎",
     "🖇️",
     "✂️",
+    "💸",
+    "💵",
+    "💴",
+    "💶",
+    "💷",
+    "📖",
+    "🛢️",
+    "🖲️",
+    "💽",
   ],
   Multimedia: [
     "🎬",
@@ -1763,6 +1934,18 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🖨️",
     "⌨️",
     "🖱️",
+    "📺",
+    "🎦",
+    "📻",
+    "🎙️",
+    "🎚️",
+    "🎛️",
+    "🎹",
+    "🥁",
+    "🎷",
+    "🎺",
+    "🎸",
+    "🎻",
   ],
   Technical: [
     "🔒",
@@ -1805,6 +1988,11 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "🪜",
     "🪝",
     "🪤",
+    "🔋",
+    "🛰️",
+    "🖲️",
+    "📟",
+    "📠",
   ],
   Office: [
     "📅",
@@ -1847,8 +2035,45 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
     "📬",
     "📭",
     "📮",
+    "💬",
+    "📞",
+    "☎️",
+    "📟",
+    "📠",
+    "🧷",
+    "⏰",
+    "⏱️",
+    "⏲️",
+    "🕰️",
+    "⌚",
+    "⌛",
+    "⏳",
   ],
 }
+
+const CATEGORY_TABS: { key: string; icon: string; label: string }[] = [
+  { key: "Smileys", icon: "😀", label: "Smileys" },
+  { key: "People", icon: "👤", label: "People" },
+  { key: "Hearts", icon: "❤️", label: "Symbols" },
+  { key: "Animals", icon: "🐶", label: "Animals" },
+  { key: "Nature", icon: "🌿", label: "Nature" },
+  { key: "Food", icon: "🍎", label: "Food" },
+  { key: "Travel", icon: "🚗", label: "Travel" },
+  { key: "Locations", icon: "🌍", label: "Places" },
+  { key: "Sports", icon: "⚽", label: "Sports" },
+  { key: "Fun", icon: "🎉", label: "Fun" },
+  { key: "Multimedia", icon: "🎵", label: "Media" },
+  { key: "Data", icon: "📊", label: "Data" },
+  { key: "Technical", icon: "🔒", label: "Tech" },
+  { key: "Office", icon: "📅", label: "Office" },
+]
+
+/** Fluid grid so the picker fits any viewport without horizontal scrolling */
+const EMOJI_GRID_CLASS =
+  "grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1 overflow-y-auto overscroll-contain max-h-[min(50vh,16rem)] -mx-1 px-1"
+
+const EMOJI_BUTTON_CLASS =
+  "flex aspect-square h-auto w-full min-w-0 items-center justify-center rounded-md p-0 text-2xl leading-none hover:bg-muted active:bg-muted cursor-pointer sm:text-xl"
 
 const MERGED_EMOJI_NAMES: Record<string, string> = {
   ...EMOJI_NAMES,
@@ -1867,7 +2092,13 @@ function buildCategoryLookup(categories: Record<string, string[]>): Record<strin
 
 const EMOJI_CATEGORY_LOOKUP = buildCategoryLookup(EMOJI_CATEGORIES)
 
-export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProps) {
+export function EmojiPicker({
+  value,
+  onChange,
+  inline = false,
+  triggerClassName,
+  ariaLabel = "Pick an emoji",
+}: EmojiPickerProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("Smileys")
   const [open, setOpen] = useState(false)
@@ -1899,18 +2130,17 @@ export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProp
 
   if (inline) {
     return (
-      <div className="space-y-2 w-full">
+      <div className="w-full space-y-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="w-10 h-10 p-0 text-xl cursor-pointer hover:bg-muted border">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border text-2xl">
             {value || "😀"}
-          </Button>
-          <div className="grid grid-cols-6 gap-1 flex-1">
-            {EMOJI_CATEGORIES.Smileys.slice(0, 6).map((emoji) => (
+          </div>
+          <div className={`${EMOJI_GRID_CLASS} flex-1`}>
+            {EMOJI_CATEGORIES.Smileys.slice(0, 12).map((emoji) => (
               <Button
                 key={emoji}
                 variant="ghost"
-                size="sm"
-                className="w-8 h-8 p-0 text-lg hover:bg-muted cursor-pointer"
+                className={EMOJI_BUTTON_CLASS}
                 onClick={() => handleEmojiSelect(emoji)}
               >
                 {emoji}
@@ -1918,15 +2148,9 @@ export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProp
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-8 gap-1">
-          {EMOJI_CATEGORIES.Objects.slice(0, 16).map((emoji) => (
-            <Button
-              key={emoji}
-              variant="ghost"
-              size="sm"
-              className="w-8 h-8 p-0 text-lg hover:bg-muted cursor-pointer"
-              onClick={() => handleEmojiSelect(emoji)}
-            >
+        <div className={EMOJI_GRID_CLASS}>
+          {EMOJI_CATEGORIES.Office.slice(0, 16).map((emoji) => (
+            <Button key={emoji} variant="ghost" className={EMOJI_BUTTON_CLASS} onClick={() => handleEmojiSelect(emoji)}>
               {emoji}
             </Button>
           ))}
@@ -1937,84 +2161,72 @@ export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProp
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="w-8 h-8 p-0 text-lg cursor-pointer hover:bg-muted inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground">
+      <PopoverTrigger
+        aria-label={ariaLabel}
+        className={
+          triggerClassName ??
+          "inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md p-0 text-lg ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        }
+      >
         {value || "😀"}
       </PopoverTrigger>
       <PopoverContent
-        className="w-96 p-3 z-50"
+        className="z-50 w-[min(24rem,calc(100vw-1.5rem))] p-3"
         side="bottom"
         align="start"
         sideOffset={8}
-        collisionPadding={10}
+        collisionPadding={12}
         avoidCollisions={true}
         sticky="always"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
             <Input
-              placeholder="Search: travel, user, bust, train, family..."
-              className="pl-8 h-8"
+              placeholder="Search emoji…"
+              className="h-10 pl-8 pr-8 sm:h-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {!searchTerm ? (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="Smileys" className="text-xs cursor-pointer">
-                  😀
-                </TabsTrigger>
-                <TabsTrigger value="Hearts" className="text-xs cursor-pointer">
-                  ❤️
-                </TabsTrigger>
-                <TabsTrigger value="People" className="text-xs cursor-pointer">
-                  👤
-                </TabsTrigger>
-                <TabsTrigger value="Animals" className="text-xs cursor-pointer">
-                  🐶
-                </TabsTrigger>
-              </TabsList>
-              <TabsList className="grid w-full grid-cols-4 mt-1">
-                <TabsTrigger value="Food" className="text-xs cursor-pointer">
-                  🍎
-                </TabsTrigger>
-                <TabsTrigger value="Travel" className="text-xs cursor-pointer">
-                  🚗
-                </TabsTrigger>
-                <TabsTrigger value="Sports" className="text-xs cursor-pointer">
-                  ⚽
-                </TabsTrigger>
-                <TabsTrigger value="Locations" className="text-xs cursor-pointer">
-                  🌍
-                </TabsTrigger>
-              </TabsList>
-              <TabsList className="grid w-full grid-cols-4 mt-1">
-                <TabsTrigger value="Data" className="text-xs cursor-pointer">
-                  📊
-                </TabsTrigger>
-                <TabsTrigger value="Multimedia" className="text-xs cursor-pointer">
-                  🎵
-                </TabsTrigger>
-                <TabsTrigger value="Technical" className="text-xs cursor-pointer">
-                  🔒
-                </TabsTrigger>
-                <TabsTrigger value="Office" className="text-xs cursor-pointer">
-                  📅
-                </TabsTrigger>
+              <TabsList className="no-scrollbar h-auto w-full justify-start gap-0.5 overflow-x-auto overscroll-x-contain">
+                {CATEGORY_TABS.map(({ key, icon, label }) => (
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    title={label}
+                    aria-label={label}
+                    className="h-9 flex-none cursor-pointer px-2.5 text-base"
+                  >
+                    {icon}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
-              {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
-                <TabsContent key={category} value={category} className="mt-2">
-                  <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
-                    {emojis.map((emoji) => (
+              {CATEGORY_TABS.map(({ key, label }) => (
+                <TabsContent key={key} value={key} className="mt-2 space-y-1">
+                  <p className="px-1 text-xs font-medium text-muted-foreground">{label}</p>
+                  <div className={EMOJI_GRID_CLASS}>
+                    {(EMOJI_CATEGORIES[key] ?? []).map((emoji) => (
                       <Button
                         key={emoji}
                         variant="ghost"
-                        size="sm"
-                        className="w-8 h-8 p-0 text-lg hover:bg-muted cursor-pointer"
+                        title={MERGED_EMOJI_NAMES[emoji]}
+                        className={EMOJI_BUTTON_CLASS}
                         onClick={() => handleEmojiSelect(emoji)}
                       >
                         {emoji}
@@ -2025,21 +2237,28 @@ export function EmojiPicker({ value, onChange, inline = false }: EmojiPickerProp
               ))}
             </Tabs>
           ) : (
-            <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
+            <div className="space-y-1">
+              <p className="px-1 text-xs font-medium text-muted-foreground">
+                {filteredEmojis.length} {filteredEmojis.length === 1 ? "result" : "results"}
+              </p>
               {filteredEmojis.length > 0 ? (
-                filteredEmojis.map((emoji) => (
-                  <Button
-                    key={emoji}
-                    variant="ghost"
-                    size="sm"
-                    className="w-8 h-8 p-0 text-lg hover:bg-muted cursor-pointer"
-                    onClick={() => handleEmojiSelect(emoji)}
-                  >
-                    {emoji}
-                  </Button>
-                ))
+                <div className={EMOJI_GRID_CLASS}>
+                  {filteredEmojis.map((emoji) => (
+                    <Button
+                      key={emoji}
+                      variant="ghost"
+                      title={MERGED_EMOJI_NAMES[emoji]}
+                      className={EMOJI_BUTTON_CLASS}
+                      onClick={() => handleEmojiSelect(emoji)}
+                    >
+                      {emoji}
+                    </Button>
+                  ))}
+                </div>
               ) : (
-                <div className="col-span-8 text-center text-sm text-muted-foreground py-4">No emojis found</div>
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No emoji matches “{searchTerm}”
+                </p>
               )}
             </div>
           )}

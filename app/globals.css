@@ -242,8 +242,25 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Stop mobile browsers reflowing text after an orientation change */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    /* Percentage-based table columns can push past the viewport on narrow screens */
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Touch devices have no hover, so :hover styles stick after a tap */
+  @media (hover: none) {
+    button,
+    [role='button'],
+    [role='menuitem'],
+    [role='tab'] {
+      -webkit-touch-callout: none;
+    }
   }
 }
 
@@ -296,6 +313,15 @@
   .priority-someday {
     background-color: #14b8a6;
     color: white;
+  }
+
+  /* Scrollable strips (emoji category tabs, mobile action bar) without a visible bar */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

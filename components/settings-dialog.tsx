@@ -31,7 +31,7 @@ interface SettingsDialogProps {
   hasPIN: boolean
   onUpdateAppName: (name: string) => void
   onUpdateAppIcon: (icon: string) => void
-  onSetPIN: (pin: string) => void
+  onSetPIN: (pin: string) => void | Promise<void>
   onRemovePIN: () => void
   sections: any[]
   statusOptions: any[]
@@ -104,7 +104,7 @@ export function SettingsDialog({
     }
   }
 
-  const handleSetPIN = () => {
+  const handleSetPIN = async () => {
     if (newPIN.length !== 4 || !/^\d{4}$/.test(newPIN)) {
       alert("PIN must be exactly 4 digits")
       return
@@ -115,10 +115,10 @@ export function SettingsDialog({
       return
     }
 
-    onSetPIN(newPIN)
+    await onSetPIN(newPIN)
     setNewPIN("")
     setConfirmPIN("")
-    alert("PIN set successfully")
+    alert("PIN saved. You'll be asked for it the next time you open this app.")
   }
 
   const handleSaveSettings = () => {
@@ -143,7 +143,7 @@ export function SettingsDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className={`${isMobile ? "max-w-[95vw] w-full mx-2" : "max-w-2xl"} max-h-[90vh] overflow-y-auto`}>
+      <DialogContent className="max-h-[90vh] w-full max-w-[calc(100vw-1rem)] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -236,14 +236,19 @@ export function SettingsDialog({
 
           <TabsContent value="security" className="space-y-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded">
-                <div>
+              <p className="text-sm text-muted-foreground">
+                The PIN is a lock screen, asked once per browser session. A hash is saved with your other settings in
+                MySQL so every device that loads this data will prompt. It does not encrypt tasks, and the PIN itself is
+                never stored.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded border p-4">
+                <div className="min-w-0">
                   <h3 className="font-medium">4-Digit PIN</h3>
                   <p className="text-sm text-muted-foreground">{hasPIN ? "PIN is currently set" : "No PIN set"}</p>
                 </div>
                 {hasPIN ? (
-                  <Button variant="outline" onClick={onRemovePIN}>
-                    <RotateCcw className="w-4 h-4 mr-2" />
+                  <Button variant="outline" onClick={onRemovePIN} className="h-11 w-full sm:h-10 sm:w-auto">
+                    <RotateCcw className="mr-2 h-4 w-4" />
                     Remove PIN
                   </Button>
                 ) : null}
@@ -257,10 +262,13 @@ export function SettingsDialog({
                       <Input
                         id="new-pin"
                         type="password"
+                        inputMode="numeric"
+                        autoComplete="new-password"
                         maxLength={4}
                         value={newPIN}
                         onChange={(e) => setNewPIN(e.target.value.replace(/\D/g, ""))}
                         placeholder="0000"
+                        className="h-11 sm:h-9"
                       />
                     </div>
                     <div className="space-y-2">
@@ -268,15 +276,18 @@ export function SettingsDialog({
                       <Input
                         id="confirm-pin"
                         type="password"
+                        inputMode="numeric"
+                        autoComplete="new-password"
                         maxLength={4}
                         value={confirmPIN}
                         onChange={(e) => setConfirmPIN(e.target.value.replace(/\D/g, ""))}
                         placeholder="0000"
+                        className="h-11 sm:h-9"
                       />
                     </div>
                   </div>
-                  <Button onClick={handleSetPIN} className="w-full">
-                    <Lock className="w-4 h-4 mr-2" />
+                  <Button onClick={handleSetPIN} className="h-11 w-full sm:h-10">
+                    <Lock className="mr-2 h-4 w-4" />
                     Set PIN
                   </Button>
                 </div>
@@ -342,11 +353,11 @@ export function SettingsDialog({
           </TabsContent>
         </Tabs>
 
-        <div className={`flex ${isMobile ? "flex-col gap-3" : "justify-end gap-2"} pt-4 border-t`}>
-          <Button variant="outline" onClick={() => setOpen(false)} className={isMobile ? "w-full" : ""}>
+        <div className="flex gap-2 border-t pt-4 sm:justify-end">
+          <Button variant="outline" onClick={() => setOpen(false)} className="h-11 flex-1 sm:h-10 sm:flex-none">
             Cancel
           </Button>
-          <Button onClick={handleSaveSettings} className={isMobile ? "w-full" : ""}>
+          <Button onClick={handleSaveSettings} className="h-11 flex-1 sm:h-10 sm:flex-none">
             Save Settings
           </Button>
         </div>

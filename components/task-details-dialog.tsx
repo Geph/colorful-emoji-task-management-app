@@ -96,17 +96,17 @@ export function TaskDetailsDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
-        className="max-w-[95vw] w-full sm:w-[75vw] sm:max-w-[1200px] max-h-[90vh] sm:max-h-[95vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto p-4 sm:max-h-[95vh] sm:w-[75vw] sm:max-w-[1200px] sm:gap-4 sm:p-6"
         showCloseButton={false}
       >
         <DialogHeader className="relative">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">{taskEmoji}</div>
+          <div className="flex items-start gap-2 sm:items-center sm:gap-3">
+            <div className="flex-none pt-0.5 text-2xl leading-none">{taskEmoji}</div>
             {isRenaming ? (
               <Input
                 value={newTaskName}
                 onChange={(e) => setNewTaskName(e.target.value)}
-                className="text-lg font-semibold flex-1"
+                className="h-11 flex-1 text-lg font-semibold sm:h-10"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     setIsRenaming(false)
@@ -120,53 +120,57 @@ export function TaskDetailsDialog({
               />
             ) : (
               <>
-                <DialogTitle className="flex-1 text-left">{newTaskName}</DialogTitle>
-                <Button variant="ghost" size="sm" onClick={() => setIsRenaming(true)} className="h-6 w-6 p-0">
-                  <Edit3 className="w-3 h-3" />
+                <DialogTitle className="min-w-0 flex-1 break-words text-left leading-snug">{newTaskName}</DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Rename task"
+                  onClick={() => setIsRenaming(true)}
+                  className="h-9 w-9 flex-none sm:h-7 sm:w-7"
+                >
+                  <Edit3 className="h-4 w-4 sm:h-3 sm:w-3" />
                 </Button>
               </>
             )}
           </div>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <RichTextEditor value={notes} onChange={setNotes} placeholder="Add notes for this task..." className="-1" />
-          </div>
+          <RichTextEditor value={notes} onChange={setNotes} placeholder="Add notes for this task..." />
 
-          <div className={`flex ${isMobile ? "flex-col gap-3" : "justify-between items-center"}`}>
-            <div className={`flex gap-2 ${isMobile ? "flex-col" : ""}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
               <Button
                 variant="outline"
                 onClick={handleDuplicate}
-                className={`flex items-center gap-2 bg-transparent ${isMobile ? "w-full" : ""}`}
+                className="h-11 flex-col gap-1 bg-transparent px-2 text-xs sm:h-10 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm"
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="h-4 w-4" />
                 Duplicate
               </Button>
               <Button
                 onClick={handleMarkCompleted}
-                className={`flex items-center gap-2 ${
-                  isCompleted ? "bg-red-600 hover:bg-red-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"
-                } ${isMobile ? "w-full" : ""}`}
+                className={`h-11 flex-col gap-1 px-2 text-xs text-white sm:h-10 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
+                  isCompleted ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                }`}
               >
-                <CheckCircle className="w-4 h-4" />
-                {isCompleted ? "Set to Incomplete" : "Complete"}
+                <CheckCircle className="h-4 w-4" />
+                {isCompleted ? (isMobile ? "Reopen" : "Set to Incomplete") : "Complete"}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                className={`flex items-center gap-2 ${isMobile ? "w-full" : ""}`}
+                className="h-11 flex-col gap-1 px-2 text-xs sm:h-10 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
                 Delete
               </Button>
             </div>
-            <div className={`flex gap-2 ${isMobile ? "flex-col" : ""}`}>
-              <Button onClick={handleSave} className={isMobile ? "w-full" : ""}>
-                Save
-              </Button>
-              <Button variant="outline" onClick={handleCancel} className={isMobile ? "w-full" : ""}>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCancel} className="h-11 flex-1 sm:h-10 sm:flex-none">
                 Cancel
+              </Button>
+              <Button onClick={handleSave} className="h-11 flex-1 sm:h-10 sm:flex-none">
+                Save
               </Button>
             </div>
           </div>

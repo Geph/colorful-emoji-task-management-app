@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronUp,
   ChevronDownIcon,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +33,7 @@ import { RocketIcon } from "@/components/rocket-icon"
 import { MergeTasksDialog } from "@/components/merge-tasks-dialog"
 import { EmojiPicker } from "@/components/enhanced-emoji-picker"
 import { SettingsDialog } from "@/components/settings-dialog"
+import { PinEntryPage } from "@/components/pin-entry-page"
 import { DbStatusIndicator } from "@/components/db-status-indicator"
 import { ProgressBar } from "@/components/progress-bar"
 import { DueDatePicker } from "@/components/due-date-picker"
@@ -46,6 +48,15 @@ import {
   type ColumnVisibility,
 } from "@/lib/app-data"
 import type { AppData } from "@/lib/app-data"
+import {
+  clearLegacyPinStorage,
+  clearPinUnlock,
+  createPinRecord,
+  isPinUnlocked,
+  markPinUnlocked,
+  readLegacyPlaintextPin,
+  verifyPin,
+} from "@/lib/pin"
 
 interface Task {
   id: string
@@ -155,8 +166,10 @@ export function TaskList() {
   const [appName, setAppName] = useState("Your Name's Task Management")
   const [appIcon, setAppIcon] = useState("")
   const [headerColor, setHeaderColor] = useState("#5e1bda")
-  const [hasPIN, setHasPIN] = useState(false)
-  const [userPIN, setUserPIN] = useState("")
+  const [pinHash, setPinHash] = useState("")
+  const [pinSalt, setPinSalt] = useState("")
+  const [pinUnlocked, setPinUnlocked] = useState(false)
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false)
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(DEFAULT_COLUMN_VISIBILITY)
   const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_COLUMN_ORDER)
 
@@ -182,6 +195,8 @@ export function TaskList() {
     if (data.statusOptions) setStatusOptions(data.statusOptions)
     if (data.priorityOptions) setPriorityOptions(data.priorityOptions)
     if (data.users) setUsers(data.users)
+    setPinHash(data.pinHash || "")
+    setPinSalt(data.pinSalt || "")
   }, [])
 
   const { isLoading: isStorageLoading, saveError, lastSavedAt, persist, syncNow, isRemoteConfigured } =
@@ -205,6 +220,7 @@ export function TaskList() {
       statusOptions,
       priorityOptions,
       users,
+      ...(pinHash && pinSalt ? { pinHash, pinSalt } : {}),
     }),
     [
       appName,
@@ -217,6 +233,8 @@ export function TaskList() {
       statusOptions,
       priorityOptions,
       users,
+      pinHash,
+      pinSalt,
     ],
   )
 
@@ -231,15 +249,31 @@ export function TaskList() {
   }, [syncNow, buildCurrentAppData])
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedUserPIN = localStorage.getItem("userPIN")
-      if (storedUserPIN) {
-        setUserPIN(storedUserPIN)
-        setHasPIN(true)
-      }
-      setStorageReady(true)
-    }
+    if (typeof window === "undefined") return
+    setPinUnlocked(isPinUnlocked())
+    setStorageReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!storageReady || isStorageLoading) return
+
+    const legacyPin = readLegacyPlaintextPin()
+    clearLegacyPinStorage()
+    if (!legacyPin || pinHash) return
+
+    let cancelled = false
+    createPinRecord(legacyPin).then((record) => {
+      if (cancelled) return
+      setPinHash(record.pinHash)
+      setPinSalt(record.pinSalt)
+      markPinUnlocked()
+      setPinUnlocked(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [storageReady, isStorageLoading, pinHash])
 
   const calculateColumnWidths = () => {
     if (isMobile) {
@@ -903,56 +937,54 @@ export function TaskList() {
 
   const handleUpdateAppName = (name: string) => {
     setAppName(name)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("appName", name)
-    }
   }
 
   const handleUpdateAppIcon = (icon: string) => {
     setAppIcon(icon)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("appIcon", icon)
-    }
   }
 
   const handleUpdateHeaderColor = (color: string) => {
     setHeaderColor(color)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("headerColor", color)
-    }
   }
 
-  const handleSetPIN = (pin: string) => {
-    setUserPIN(pin)
-    setHasPIN(true)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("userPIN", pin)
-      localStorage.removeItem("isAuthenticated") // Force re-authentication
-    }
-    alert("PIN set successfully. You will need to enter it on your next visit.")
+  const handleSetPIN = async (pin: string) => {
+    const record = await createPinRecord(pin)
+    setPinHash(record.pinHash)
+    setPinSalt(record.pinSalt)
+    markPinUnlocked()
+    setPinUnlocked(true)
+    clearLegacyPinStorage()
   }
 
   const handleRemovePIN = () => {
-    setUserPIN("")
-    setHasPIN(false)
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("userPIN")
-      localStorage.removeItem("isAuthenticated")
+    setPinHash("")
+    setPinSalt("")
+    clearPinUnlock()
+    setPinUnlocked(false)
+    clearLegacyPinStorage()
+  }
+
+  const handlePinEntered = async (pin: string) => {
+    setIsVerifyingPin(true)
+    try {
+      const ok = await verifyPin(pin, pinHash, pinSalt)
+      if (ok) {
+        markPinUnlocked()
+        setPinUnlocked(true)
+      } else {
+        alert("Incorrect PIN. Please try again.")
+      }
+    } finally {
+      setIsVerifyingPin(false)
     }
   }
 
   const handleUpdateColumnVisibility = (visibility: ColumnVisibility) => {
     setColumnVisibility(visibility)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("columnVisibility", JSON.stringify(visibility))
-    }
   }
 
   const handleUpdateColumnOrder = (order: string[]) => {
     setColumnOrder(order)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("columnOrder", JSON.stringify(order))
-    }
   }
 
   const handleAddUser = (user: string) => {
@@ -1090,6 +1122,62 @@ export function TaskList() {
     return columnOrder.map((columnId) => headerComponents[columnId]).filter(Boolean)
   }
 
+  const renderSectionActions = (section: (typeof sections)[number]) => {
+    const iconButtonClass = "h-9 w-9 flex-none text-muted-foreground hover:text-foreground sm:h-8 sm:w-8"
+
+    return (
+      <>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Move section up"
+          className={iconButtonClass}
+          onClick={() => moveSectionUp(section.id)}
+          disabled={sections.findIndex((s) => s.id === section.id) === 0}
+        >
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Move section down"
+          className={iconButtonClass}
+          onClick={() => moveSectionDown(section.id)}
+          disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
+        >
+          <ChevronDownIcon className="h-4 w-4" />
+        </Button>
+
+        <SectionRenameDialog currentName={section.name} onRename={(newName) => renameSection(section.id, newName)}>
+          <Button variant="ghost" size="icon" aria-label="Rename section" className={iconButtonClass}>
+            <Edit className="h-4 w-4" />
+          </Button>
+        </SectionRenameDialog>
+
+        <RemoveSectionDialog sectionToRemove={section} availableSections={sections} onRemoveSection={removeSection}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Remove section"
+            className="h-9 w-9 flex-none text-muted-foreground hover:text-destructive sm:h-8 sm:w-8"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </RemoveSectionDialog>
+
+        <Button
+          size="sm"
+          className="ml-auto h-9 flex-none gap-1 bg-gray-600 text-white hover:bg-gray-700 sm:ml-0 sm:h-8"
+          onClick={() => addTask(section.id)}
+        >
+          <Plus className="h-4 w-4" />
+          Add Task
+        </Button>
+      </>
+    )
+  }
+
   const renderMobileTaskRow = (task: Task, section: { id: string }) => {
     const mobileColumns = columnOrder.filter((columnId) => {
       switch (columnId) {
@@ -1108,26 +1196,36 @@ export function TaskList() {
       }
     })
 
+    const isSelected = selectedTasks.has(task.id)
+
+    const fieldLabelClass = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+
     return (
       <div
         key={task.id}
-        className={`p-2 hover:bg-muted/50 border-b border-border/50 ${
-          task.completed ? "opacity-60" : ""
-        } ${selectedTasks.has(task.id) ? "bg-blue-50" : ""}`}
+        className={`rounded-lg border bg-card p-3 transition-colors ${task.completed ? "opacity-60" : ""} ${
+          isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"
+        }`}
       >
-        {/* Main row with checkbox, emoji, name, and files */}
-        <div className="flex items-center gap-3 mb-1">
-          <Checkbox checked={selectedTasks.has(task.id)} onCheckedChange={() => toggleTaskSelection(task.id)} />
-          <div onClick={() => console.log("[v0] Emoji picker container clicked in mobile row")}>
-            <EmojiPicker
-              value={task.emoji}
-              onChange={(emoji) => {
-                console.log("[v0] Emoji changed in mobile row:", emoji)
-                updateTaskEmoji(section.id, task.id, emoji)
-              }}
+        {/* Main row with checkbox, emoji and name */}
+        <div className="flex items-start gap-2">
+          <label className="flex h-11 w-9 flex-none cursor-pointer items-center justify-center">
+            <span className="sr-only">Select task</span>
+            <Checkbox
+              className="size-5"
+              checked={isSelected}
+              onCheckedChange={() => toggleTaskSelection(task.id)}
             />
-          </div>
-          <div className="flex-1">
+          </label>
+
+          <EmojiPicker
+            value={task.emoji}
+            ariaLabel={`Emoji for ${task.name || "new task"}`}
+            triggerClassName="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-md text-2xl transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(emoji) => updateTaskEmoji(section.id, task.id, emoji)}
+          />
+
+          <div className="min-w-0 flex-1">
             {editingTaskId === task.id ? (
               <Input
                 value={task.name}
@@ -1157,13 +1255,13 @@ export function TaskList() {
                   }
                 }}
                 autoFocus
-                className="text-sm h-8"
+                className="h-11"
               />
             ) : (
               <div
-                className={`text-sm cursor-pointer hover:bg-muted/50 px-2 py-1 rounded flex-1 block ${
+                className={`flex min-h-11 cursor-pointer items-center rounded px-2 text-base hover:bg-muted/50 ${
                   task.completed ? "line-through" : ""
-                } ${task.name === "" ? "text-muted-foreground italic" : ""}`}
+                } ${task.name === "" ? "italic text-muted-foreground" : ""}`}
                 onClick={() => {
                   if (task.name === "") {
                     setEditingTaskId(task.id)
@@ -1171,7 +1269,7 @@ export function TaskList() {
                 }}
               >
                 {task.name === "" ? (
-                  <span>Click to add task name...</span>
+                  <span>Tap to add task name…</span>
                 ) : (
                   <TaskDetailsDialog
                     taskName={task.name}
@@ -1184,7 +1282,7 @@ export function TaskList() {
                     onDeleteTask={() => deleteTask(section.id, task.id)}
                     onMarkCompleted={() => markTaskAsCompleted(section.id, task.id)} // Added mark completed
                   >
-                    <span>{task.name}</span>
+                    <span className="block break-words">{task.name}</span>
                   </TaskDetailsDialog>
                 )}
               </div>
@@ -1193,47 +1291,45 @@ export function TaskList() {
         </div>
 
         {mobileColumns.length > 0 && (
-          <div className={`ml-11 grid gap-2 text-xs ${mobileColumns.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div className={`mt-2 grid gap-x-3 gap-y-2 ${mobileColumns.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {mobileColumns
               .map((columnId) => {
                 switch (columnId) {
                   case "status":
                     return columnVisibility.status ? (
-                      <div key="status" className="flex items-center">
-                        <div className="flex-1">
-                          <StatusDropdown
-                            value={task.status}
-                            onChange={(status) => updateTaskStatus(section.id, task.id, status)}
-                            options={statusOptions}
-                            onUpdateOptions={setStatusOptions}
-                            fullWidth
-                            mobileHeight // added mobile height prop
-                          />
-                        </div>
+                      <div key="status" className="min-w-0 space-y-1">
+                        <p className={fieldLabelClass}>Status</p>
+                        <StatusDropdown
+                          value={task.status}
+                          onChange={(status) => updateTaskStatus(section.id, task.id, status)}
+                          options={statusOptions}
+                          onUpdateOptions={setStatusOptions}
+                          fullWidth
+                          mobileHeight // added mobile height prop
+                        />
                       </div>
                     ) : null
 
                   case "priority":
                     return columnVisibility.priority ? (
-                      <div key="priority" className="flex items-center">
-                        <div className="flex-1">
-                          <PriorityDropdown
-                            value={task.priority}
-                            onChange={(priority) => updateTaskPriority(section.id, task.id, priority)}
-                            options={priorityOptions}
-                            onUpdateOptions={setPriorityOptions}
-                            fullWidth
-                            mobileHeight // added mobile height prop
-                          />
-                        </div>
+                      <div key="priority" className="min-w-0 space-y-1">
+                        <p className={fieldLabelClass}>Priority</p>
+                        <PriorityDropdown
+                          value={task.priority}
+                          onChange={(priority) => updateTaskPriority(section.id, task.id, priority)}
+                          options={priorityOptions}
+                          onUpdateOptions={setPriorityOptions}
+                          fullWidth
+                          mobileHeight // added mobile height prop
+                        />
                       </div>
                     ) : null
 
                   case "progress":
                     return columnVisibility.progress ? (
-                      <div key="progress" className="flex items-center gap-1">
-                        <span className="text-muted-foreground font-medium">Progress:</span>
-                        <div className="flex-1">
+                      <div key="progress" className="min-w-0 space-y-1">
+                        <p className={fieldLabelClass}>Progress</p>
+                        <div className="flex min-h-10 items-center">
                           <ProgressBar
                             value={task.progress}
                             onChange={(progress) => updateTaskProgress(section.id, task.id, progress)}
@@ -1244,20 +1340,22 @@ export function TaskList() {
 
                   case "due":
                     return columnVisibility.due ? (
-                      <div key="due" className="flex items-center gap-1">
-                        <span className="text-muted-foreground font-medium">Due:</span>
-                        <DueDatePicker
-                          value={task.dueDate}
-                          onChange={(dueDate) => updateTaskDueDate(section.id, task.id, dueDate)}
-                        />
+                      <div key="due" className="min-w-0 space-y-1">
+                        <p className={fieldLabelClass}>Due</p>
+                        <div className="flex min-h-10 items-center">
+                          <DueDatePicker
+                            value={task.dueDate}
+                            onChange={(dueDate) => updateTaskDueDate(section.id, task.id, dueDate)}
+                          />
+                        </div>
                       </div>
                     ) : null
 
                   case "who":
                     return columnVisibility.who ? (
-                      <div key="who" className="flex items-center gap-1">
-                        <span className="text-muted-foreground font-medium">Who:</span>
-                        <div className="flex-1">
+                      <div key="who" className="min-w-0 space-y-1">
+                        <p className={fieldLabelClass}>Who</p>
+                        <div className="flex min-h-10 items-center">
                           <WhoField
                             value={task.assignedTo}
                             onChange={(assignedTo) => updateTaskAssignedTo(section.id, task.id, assignedTo)}
@@ -1281,20 +1379,41 @@ export function TaskList() {
     )
   }
 
+  if (!storageReady || isStorageLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (pinHash && pinSalt && !pinUnlocked) {
+    return (
+      <PinEntryPage
+        appName={appName}
+        appIcon={appIcon}
+        isVerifying={isVerifyingPin}
+        onPinEntered={handlePinEntered}
+      />
+    )
+  }
+
   return (
     <div className="flex-1 bg-background">
-      {isStorageLoading && (
-        <div className="border-b border-border bg-muted/40 px-4 py-2 text-center text-sm text-muted-foreground">
-          Loading saved tasks...
-        </div>
-      )}
       {saveError && (
         <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
           Could not sync to database: {saveError}
         </div>
       )}
       <div
-        className={`border-b border-border ${isMobile ? "px-3 py-4" : "p-6"}`}
+        className={`sticky top-0 z-30 border-b border-border ${
+          isMobile
+            ? "px-3 py-3 pl-[max(env(safe-area-inset-left),0.75rem)] pr-[max(env(safe-area-inset-right),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]"
+            : "p-6"
+        }`}
         style={{ backgroundColor: headerColor }}
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1318,18 +1437,28 @@ export function TaskList() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
                 placeholder="Search tasks..."
-                className="w-full border-white/20 bg-white/10 pl-10 text-white placeholder:text-white/60"
+                className="h-11 w-full border-white/20 bg-white/10 pl-10 pr-10 text-white placeholder:text-white/60 sm:h-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  aria-label="Clear task search"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-white/70 hover:bg-white/10 hover:text-white sm:h-7 sm:w-7"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
-            <div className="order-2 flex items-center gap-2 sm:order-1">
+            <div className="order-2 flex items-stretch gap-2 sm:order-1 sm:items-center">
               <AddSectionDialog onAddSection={addSection}>
                 <Button
                   variant="outline"
                   size={isMobile ? "default" : "sm"}
-                  className="flex-1 gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900 sm:flex-none"
+                  className="h-11 flex-1 gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900 sm:h-9 sm:flex-none"
                 >
                   <Plus className="h-4 w-4" />
                   {isMobile ? "Section" : "Add Section"}
@@ -1340,7 +1469,7 @@ export function TaskList() {
                 appIcon={appIcon}
                 headerColor={headerColor}
                 onUpdateHeaderColor={handleUpdateHeaderColor}
-                hasPIN={hasPIN}
+                hasPIN={Boolean(pinHash && pinSalt)}
                 onUpdateAppName={handleUpdateAppName}
                 onUpdateAppIcon={handleUpdateAppIcon}
                 onSetPIN={handleSetPIN}
@@ -1362,7 +1491,7 @@ export function TaskList() {
                 <Button
                   variant="outline"
                   size={isMobile ? "default" : "sm"}
-                  className="gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900"
+                  className="h-11 flex-1 gap-2 border-white/20 bg-white/10 text-white transition-colors hover:bg-white hover:text-purple-900 sm:h-9 sm:flex-none"
                 >
                   <Settings className="h-4 w-4" />
                   Settings
@@ -1373,173 +1502,111 @@ export function TaskList() {
         </div>
       </div>
 
-      <div className={`border-b border-border ${isMobile ? "px-2 py-2" : "p-4"}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {selectedTasks.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={deleteSelectedTasks} className="gap-1 bg-transparent">
-                  <Trash2 className="w-4 h-4" />
-                  Delete ({selectedTasks.size})
+      {selectedTasks.size > 0 && (
+        <div
+          className={
+            isMobile
+              ? "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pt-2 pb-[env(safe-area-inset-bottom)] pl-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)] shadow-[0_-2px_12px_rgba(0,0,0,0.12)] backdrop-blur"
+              : "border-b border-border p-4"
+          }
+        >
+          <div className={`flex items-center gap-2 ${isMobile ? "no-scrollbar overflow-x-auto pb-2" : "flex-wrap"}`}>
+            <Button
+              variant="outline"
+              size={isMobile ? "default" : "sm"}
+              onClick={deleteSelectedTasks}
+              className="flex-none gap-1 bg-transparent"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete ({selectedTasks.size})
+            </Button>
+            <MoveToSectionDialog sections={sections} onMove={moveSelectedTasks}>
+              <Button variant="outline" size={isMobile ? "default" : "sm"} className="flex-none gap-1 bg-transparent">
+                <FolderOpen className="h-4 w-4" />
+                Move ({selectedTasks.size})
+              </Button>
+            </MoveToSectionDialog>
+            <Button
+              variant="outline"
+              size={isMobile ? "default" : "sm"}
+              onClick={markSelectedAsCompleted}
+              className="flex-none gap-1 bg-transparent"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Complete ({selectedTasks.size})
+            </Button>
+            {selectedTasks.size > 1 && (
+              <MergeTasksDialog
+                selectedTaskNames={Array.from(selectedTasks)
+                  .map((taskId) => {
+                    for (const section of sections) {
+                      const task = section.tasks.find((t) => t.id === taskId)
+                      if (task) return task.name
+                    }
+                    return ""
+                  })
+                  .filter(Boolean)}
+                onMerge={mergeSelectedTasks}
+              >
+                <Button variant="outline" size={isMobile ? "default" : "sm"} className="flex-none gap-1 bg-transparent">
+                  <Merge className="h-4 w-4" />
+                  Merge ({selectedTasks.size})
                 </Button>
-                <MoveToSectionDialog sections={sections} onMove={moveSelectedTasks}>
-                  <Button variant="outline" size="sm" className="gap-1 bg-transparent">
-                    <FolderOpen className="w-4 h-4" />
-                    Move ({selectedTasks.size})
-                  </Button>
-                </MoveToSectionDialog>
-                <Button variant="outline" size="sm" onClick={markSelectedAsCompleted} className="gap-1 bg-transparent">
-                  <CheckCircle className="w-4 h-4" />
-                  Complete ({selectedTasks.size})
-                </Button>
-                {selectedTasks.size > 1 && (
-                  <MergeTasksDialog
-                    selectedTaskNames={Array.from(selectedTasks)
-                      .map((taskId) => {
-                        for (const section of sections) {
-                          const task = section.tasks.find((t) => t.id === taskId)
-                          if (task) return task.name
-                        }
-                        return ""
-                      })
-                      .filter(Boolean)}
-                    onMerge={mergeSelectedTasks}
-                  >
-                    <Button variant="outline" size="sm" className="gap-1 bg-transparent">
-                      <Merge className="w-4 h-4" />
-                      Merge ({selectedTasks.size})
-                    </Button>
-                  </MergeTasksDialog>
-                )}
-              </div>
+              </MergeTasksDialog>
             )}
+            <Button
+              variant="ghost"
+              size={isMobile ? "default" : "sm"}
+              onClick={() => setSelectedTasks(new Set())}
+              className="flex-none gap-1"
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className={`table-container ${isMobile ? "px-2 py-3" : "p-4"}`} ref={tableRef}>
+      <div
+        className={`table-container ${isMobile ? "px-2 py-3" : "p-4"} ${
+          isMobile && selectedTasks.size > 0 ? "pb-24" : ""
+        }`}
+        ref={tableRef}
+      >
         {sections.map((section) => (
           <div key={section.id} className="mb-6">
-            <div className="flex flex-col gap-2 mb-4">
+            <div className="mb-4 flex flex-col gap-2">
               {/* Main section header row */}
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => toggleSection(section.id)} className="p-1">
-                  {section.expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <div className="flex min-w-0 items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={section.expanded ? "Collapse section" : "Expand section"}
+                  onClick={() => toggleSection(section.id)}
+                  className="h-9 w-9 flex-none sm:h-8 sm:w-8"
+                >
+                  {section.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </Button>
-                <div className="bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2">
-                  <span>{section.name}</span>
-                  <span className="bg-white/20 px-2 py-0.5 rounded text-xs">{section.tasks.length}</span>
+                <div className="flex min-w-0 items-center gap-2 rounded bg-gray-700 px-3 py-1.5 text-sm font-medium text-white">
+                  <span className="truncate">{section.name}</span>
+                  <span className="flex-none rounded bg-white/20 px-2 py-0.5 text-xs">{section.tasks.length}</span>
                 </div>
 
-                {/* Desktop: buttons inline */}
-                <div className="hidden sm:flex items-center gap-2 ml-auto">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => moveSectionUp(section.id)}
-                    disabled={sections.findIndex((s) => s.id === section.id) === 0}
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => moveSectionDown(section.id)}
-                    disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
-                  >
-                    <ChevronDownIcon className="w-4 h-4" />
-                  </Button>
-
-                  <SectionRenameDialog
-                    currentName={section.name}
-                    onRename={(newName) => renameSection(section.id, newName)}
-                  >
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </SectionRenameDialog>
-
-                  <RemoveSectionDialog
-                    sectionToRemove={section}
-                    availableSections={sections}
-                    onRemoveSection={removeSection}
-                  >
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </RemoveSectionDialog>
-
-                  <Button
-                    size="sm"
-                    className="gap-1 bg-gray-600 text-white hover:bg-gray-700"
-                    onClick={() => addTask(section.id)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Task
-                  </Button>
+                {/* Desktop: buttons inline; mobile moves them to their own row below */}
+                <div className="ml-auto hidden items-center gap-1 sm:flex">
+                  {renderSectionActions(section)}
                 </div>
               </div>
 
               {/* Mobile: buttons below section header */}
-              <div className="flex sm:hidden items-center gap-2 ml-8">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => moveSectionUp(section.id)}
-                  disabled={sections.findIndex((s) => s.id === section.id) === 0}
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => moveSectionDown(section.id)}
-                  disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
-                >
-                  <ChevronDownIcon className="w-4 h-4" />
-                </Button>
-
-                <SectionRenameDialog
-                  currentName={section.name}
-                  onRename={(newName) => renameSection(section.id, newName)}
-                >
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                </SectionRenameDialog>
-
-                <RemoveSectionDialog
-                  sectionToRemove={section}
-                  availableSections={sections}
-                  onRemoveSection={removeSection}
-                >
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </RemoveSectionDialog>
-
-                <Button
-                  size="sm"
-                  className="gap-1 bg-gray-600 text-white hover:bg-gray-700"
-                  onClick={() => addTask(section.id)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Task
-                </Button>
-              </div>
+              <div className="ml-9 flex items-center gap-1 sm:hidden">{renderSectionActions(section)}</div>
             </div>
 
             {section.expanded && (
               <>
                 {isMobile ? (
                   // Mobile layout - stacked cards
-                  <div className="space-y-0.5">
+                  <div className="space-y-2">
                     {section.tasks
                       .filter(
                         (task) =>
@@ -1588,7 +1655,7 @@ export function TaskList() {
                           key={task.id}
                           className={`group flex gap-1 px-4 py-0.75 hover:bg-muted/50 border-b border-border/50 ${
                             task.completed ? "opacity-60" : ""
-                          } ${selectedTasks.has(task.id) ? "bg-blue-50" : ""}`}
+                          } ${selectedTasks.has(task.id) ? "bg-primary/10" : ""}`}
                           style={{
                             minHeight: "32px",
                           }}
@@ -1601,15 +1668,11 @@ export function TaskList() {
                           </div>
 
                           <div className="flex items-center" style={{ width: columnWidths.emoji }}>
-                            <div onClick={() => console.log("[v0] Emoji picker container clicked in table row")}>
-                              <EmojiPicker
-                                value={task.emoji}
-                                onChange={(emoji) => {
-                                  console.log("[v0] Emoji changed in table row:", emoji)
-                                  updateTaskEmoji(section.id, task.id, emoji)
-                                }}
-                              />
-                            </div>
+                            <EmojiPicker
+                              value={task.emoji}
+                              ariaLabel={`Emoji for ${task.name || "new task"}`}
+                              onChange={(emoji) => updateTaskEmoji(section.id, task.id, emoji)}
+                            />
                           </div>
 
                           <div className="flex items-center" style={{ width: columnWidths.name }}>
@@ -1692,10 +1755,19 @@ export function TaskList() {
         {completedTasks.length > 0 && (
           <div className="mb-6">
             <div
-              className="flex items-center gap-2 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+              role="button"
+              tabIndex={0}
+              aria-expanded={!isCompletedCollapsed}
+              className="mb-4 flex min-h-11 cursor-pointer items-center gap-2 transition-opacity hover:opacity-80"
               onClick={() => setIsCompletedCollapsed(!isCompletedCollapsed)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault()
+                  setIsCompletedCollapsed(!isCompletedCollapsed)
+                }
+              }}
             >
-              <div className="bg-green-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white">
                 <span>{isCompletedCollapsed ? "▶" : "▼"}</span>
                 <span>COMPLETED</span>
                 <span className="bg-white/20 px-2 py-0.5 rounded text-xs">{completedTasks.length}</span>
@@ -1706,7 +1778,7 @@ export function TaskList() {
               <>
                 {isMobile ? (
                   // Mobile completed tasks
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {completedTasks.map((task) => (
                       <TaskDetailsDialog
                         key={task.id}
@@ -1727,11 +1799,15 @@ export function TaskList() {
                         onMarkCompleted={() => markTaskAsIncomplete(task.id)} // Changed to markTaskAsIncomplete
                         onDeleteTask={() => setCompletedTasks(completedTasks.filter((t) => t.id !== task.id))}
                       >
-                        <div className="p-3 hover:bg-muted/50 border-b border-border/50 opacity-60 cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            <Checkbox checked={true} disabled />
-                            <span className="text-2xl">{task.emoji}</span>
-                            <span className="text-sm line-through flex-1">{task.name}</span>
+                        <div className="cursor-pointer rounded-lg border border-border bg-card p-3 opacity-60 hover:bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-11 w-9 flex-none items-center justify-center">
+                              <Checkbox className="size-5" checked={true} disabled />
+                            </span>
+                            <span className="flex h-11 w-11 flex-none items-center justify-center text-2xl">
+                              {task.emoji}
+                            </span>
+                            <span className="min-w-0 flex-1 break-words text-base line-through">{task.name}</span>
                           </div>
                         </div>
                       </TaskDetailsDialog>

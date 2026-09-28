@@ -57,8 +57,8 @@ export function StatusDropdown({
       >
         <Badge
           className={`text-xs font-medium hover:opacity-80 cursor-pointer ${
-            fullWidth ? "w-full h-full flex items-center justify-center rounded-none border" : "rounded-full"
-          } ${mobileHeight ? "min-h-[36px] py-2" : ""} ${currentStatus.key === "blank" ? "text-gray-500 border-gray-300" : "text-white"}`} // added mobileHeight styling for badge
+            fullWidth ? "w-full h-full flex items-center justify-center border" : "rounded-full"
+          } ${fullWidth && !mobileHeight ? "rounded-none" : ""} ${mobileHeight ? "min-h-[36px] rounded-md py-2" : ""} ${currentStatus.key === "blank" ? "text-gray-500 border-gray-300" : "text-white"}`} // added mobileHeight styling for badge
           style={{
             backgroundColor: currentStatus.key === "blank" ? "#ffffff" : currentStatus.color,
             borderColor: currentStatus.key === "blank" ? "#d1d5db" : currentStatus.color,

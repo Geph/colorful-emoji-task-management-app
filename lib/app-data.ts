@@ -44,6 +44,9 @@ export interface AppData {
   statusOptions: OptionItem[]
   priorityOptions: OptionItem[]
   users: string[]
+  /** PBKDF2 hash of the 4-digit PIN; never store the PIN itself. */
+  pinHash?: string
+  pinSalt?: string
 }
 
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {

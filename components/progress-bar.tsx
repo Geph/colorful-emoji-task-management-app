@@ -42,13 +42,14 @@ export function ProgressBar({ value, onChange }: ProgressBarProps) {
       <DialogTrigger asChild>
         <Button
           variant="ghost"
-          className="w-full h-6 p-0 justify-start"
+          aria-label={`Progress ${value}%`}
+          className="h-10 w-full justify-start px-2 sm:h-6 sm:px-0"
           onClick={() => {
             setTempValue(value)
             setOpen(true)
           }}
         >
-          <div className="w-full bg-gray-200 rounded-full h-2 relative">
+          <div className="relative h-2 w-full rounded-full bg-gray-200">
             <div
               className={`h-2 rounded-full transition-all ${getProgressColor(value)}`}
               style={{ width: `${value}%` }}
@@ -82,11 +83,13 @@ export function ProgressBar({ value, onChange }: ProgressBarProps) {
               className="w-full"
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+          <div className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setOpen(false)} className="h-11 flex-1 sm:h-10 sm:flex-none">
               Cancel
             </Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button onClick={handleSave} className="h-11 flex-1 sm:h-10 sm:flex-none">
+              Save
+            </Button>
           </div>
         </div>
       </DialogContent>
