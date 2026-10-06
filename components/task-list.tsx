@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { Fragment, useState, useRef, useEffect, useCallback } from "react"
 import { StatusDropdown, type StatusType } from "@/components/status-dropdown"
 import { PriorityDropdown, type PriorityType } from "@/components/priority-dropdown"
 import { SectionRenameDialog } from "@/components/section-rename-dialog"
@@ -1072,7 +1072,9 @@ export function TaskList() {
       ) : null,
     }
 
-    return columnOrder.map((columnId) => columnComponents[columnId]).filter(Boolean)
+    return columnOrder
+      .filter((columnId) => columnComponents[columnId])
+      .map((columnId) => <Fragment key={columnId}>{columnComponents[columnId]}</Fragment>)
   }
 
   const renderColumnHeaders = () => {
@@ -1119,7 +1121,9 @@ export function TaskList() {
       ) : null,
     }
 
-    return columnOrder.map((columnId) => headerComponents[columnId]).filter(Boolean)
+    return columnOrder
+      .filter((columnId) => headerComponents[columnId])
+      .map((columnId) => <Fragment key={columnId}>{headerComponents[columnId]}</Fragment>)
   }
 
   const renderSectionActions = (section: (typeof sections)[number]) => {

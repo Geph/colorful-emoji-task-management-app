@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Search, X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EMOJI_EXTENSIONS, emojiMatchesSearch } from "@/lib/emoji-search"
+import { UNICODE_EMOJI_GROUPS } from "@/lib/unicode-emojis"
 
 interface EmojiPickerProps {
   value: string
@@ -1109,7 +1110,8 @@ const EMOJI_NAMES: Record<string, string> = {
   "🗳️": "ballot box vote election poll",
 }
 
-const EMOJI_CATEGORIES: Record<string, string[]> = {
+/** Hand-picked tabs shown first; every other Unicode emoji is appended by withUnicodeEmojis(). */
+const CURATED_EMOJI_CATEGORIES: Record<string, string[]> = {
   Smileys: [
     "😀",
     "😃",
@@ -2066,7 +2068,51 @@ const CATEGORY_TABS: { key: string; icon: string; label: string }[] = [
   { key: "Data", icon: "📊", label: "Data" },
   { key: "Technical", icon: "🔒", label: "Tech" },
   { key: "Office", icon: "📅", label: "Office" },
+  { key: "Objects", icon: "💡", label: "Objects" },
+  { key: "Flags", icon: "🏁", label: "Flags" },
 ]
+
+const UNICODE_GROUP_TABS: Record<string, string> = {
+  "Smileys & Emotion": "Smileys",
+  "People & Body": "People",
+  "Animals & Nature": "Animals",
+  "Food & Drink": "Food",
+  "Travel & Places": "Travel",
+  Activities: "Sports",
+  Objects: "Objects",
+  Symbols: "Hearts",
+  Flags: "Flags",
+}
+
+const PLANT_NAME_PATTERN =
+  /flower|plant|tree|leaf|leaves|herb|cactus|blossom|rose|tulip|seedling|sunflower|hibiscus|lotus|clover|bouquet|mushroom|wood|nest|rock|coral|sheaf|hyacinth|shamrock|fungus/
+
+const stripVariation = (emoji: string) => emoji.replace(/\uFE0F/g, "")
+
+function withUnicodeEmojis(curated: Record<string, string[]>) {
+  const categories: Record<string, string[]> = Object.fromEntries(
+    Object.entries(curated).map(([key, emojis]) => [key, [...emojis]]),
+  )
+  const unicodeNames: Record<string, string> = {}
+  const seen = new Set(Object.values(curated).flat().map(stripVariation))
+
+  for (const [group, entries] of Object.entries(UNICODE_EMOJI_GROUPS)) {
+    for (const [emoji, name] of entries) {
+      const key = stripVariation(emoji)
+      unicodeNames[key] = name
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      let tab = UNICODE_GROUP_TABS[group] ?? "Objects"
+      if (tab === "Animals" && PLANT_NAME_PATTERN.test(name)) tab = "Nature"
+      ;(categories[tab] ??= []).push(emoji)
+    }
+  }
+
+  return { categories, unicodeNames }
+}
+
+const { categories: EMOJI_CATEGORIES, unicodeNames: UNICODE_NAMES } = withUnicodeEmojis(CURATED_EMOJI_CATEGORIES)
 
 /** Fluid grid so the picker fits any viewport without horizontal scrolling */
 const EMOJI_GRID_CLASS =
@@ -2075,10 +2121,16 @@ const EMOJI_GRID_CLASS =
 const EMOJI_BUTTON_CLASS =
   "flex aspect-square h-auto w-full min-w-0 items-center justify-center rounded-md p-0 text-2xl leading-none hover:bg-muted active:bg-muted cursor-pointer sm:text-xl"
 
-const MERGED_EMOJI_NAMES: Record<string, string> = {
-  ...EMOJI_NAMES,
-  ...EMOJI_EXTENSIONS.names,
-}
+const MERGED_EMOJI_NAMES: Record<string, string> = (() => {
+  const curatedNames: Record<string, string> = { ...EMOJI_NAMES, ...EMOJI_EXTENSIONS.names }
+  const merged: Record<string, string> = {}
+  for (const emoji of new Set(Object.values(EMOJI_CATEGORIES).flat())) {
+    const curated = curatedNames[emoji] ?? curatedNames[stripVariation(emoji)] ?? ""
+    const official = UNICODE_NAMES[stripVariation(emoji)] ?? ""
+    merged[emoji] = curated.includes(official) ? curated : [official, curated].filter(Boolean).join(" ")
+  }
+  return merged
+})()
 
 function buildCategoryLookup(categories: Record<string, string[]>): Record<string, string> {
   const lookup: Record<string, string> = {}

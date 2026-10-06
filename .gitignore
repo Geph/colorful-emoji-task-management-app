@@ -20,6 +20,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# server credentials (copy config.example.php to config.php on the host only)
+server/php/config.php
+config.php
+
 # vercel
 .vercel
 
